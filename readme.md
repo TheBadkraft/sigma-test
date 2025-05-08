@@ -19,6 +19,18 @@ A lightweight unit testing framework for C with a focus on simplicity and extens
 2. Include `sigtest.h` in your test files  
 3. Link `sigtest.c` with your test executable  
 
+### **Sigma Test’s Approach:**  
+🔹 **Function-pointer-based assertions** (`Assert.areEqual()`, `Assert.isTrue()`)  
+🔹 **Type-safe comparisons** (no `void*` abuse)  
+🔹 **Clear failure messages** (with optional formatting)  
+
+**Comparison:**  
+| Framework       | Assertion Style | Type Safety | Custom Messages |  
+|----------------|----------------|------------|----------------|  
+| **Sigma Test** | `Assert.areEqual(&exp, &act, INT, "msg")` | ✅ Yes | ✅ Yes |  
+| **Unity**      | `TEST_ASSERT_EQUAL_INT(exp, act)` | ✅ Yes | ❌ No |  
+| **Check**      | `ck_assert_int_eq(exp, act)` | ✅ Yes | ❌ No |  
+
 ## Usage
 
 ### Basic Test Structure
