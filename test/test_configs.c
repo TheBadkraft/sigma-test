@@ -1,0 +1,67 @@
+// test_configs.c
+#include "sigtest.h"
+
+// Assert.isTrue(condition, "fail message");
+// Assert.isFalse(condition, "fail message");
+// Assert.areEqual(obj1, obj2, INT, "fail message");
+// Assert.areEqual(obj1, obj2, PTR, "fail message");
+// Assert.areEqual(obj1, obj2, STRING, "fail message");
+static int suite_config_count = 0;
+static int suite_cleanup_count = 0;
+static int testcase_setup_count = 0;
+static int testcase_teardown_count = 0;
+
+static void suite_config(void)
+{
+	suite_config_count++;
+	writef("Suite config called, count: %d", suite_config_count);
+}
+
+static void suite_cleanup(void)
+{
+	suite_cleanup_count++;
+	writef("Suite cleanup called, count: %d", suite_cleanup_count);
+}
+
+static void testcase_setup(void)
+{
+	testcase_setup_count++;
+	writef("Testcase setup called, count: %d", testcase_setup_count);
+}
+
+static void testcase_teardown(void)
+{
+	testcase_teardown_count++;
+	writef("Testcase teardown called, count: %d", testcase_teardown_count);
+}
+void test_varargs_message(void)
+{
+	int x = 42, y = 43;
+	Assert.isFalse(x == y, "Values %d and %d should not be equal", x, y);
+}
+
+void test_suite_config_cleanup(void)
+{
+	Assert.isTrue(suite_config_count == 1, "Suite config should be called once, got %d", suite_config_count);
+	Assert.isTrue(suite_cleanup_count == 0, "Suite cleanup should not yet be called");
+}
+
+void test_testcase_setup_teardown(void)
+{
+	Assert.isTrue(testcase_setup_count > 0, "Testcase setup should be called, got %d", testcase_setup_count);
+	Assert.isTrue(testcase_teardown_count >= 0, "Testcase teardown should not yet be called for this test, got %d", testcase_teardown_count);
+}
+
+// Register test cases
+__attribute__((constructor)) void init_sigtest_tests(void)
+{
+	writef("Registering sigtest_features tests\n");
+
+	testset("features_suite", suite_config, suite_cleanup);
+	setup_testcase(testcase_setup);
+	teardown_testcase(testcase_teardown);
+
+	testcase("varargs_message", test_varargs_message);
+	testcase("suite_config_cleanup", test_suite_config_cleanup);
+	testcase("testcase_setup_teardown", test_testcase_setup_teardown);
+}

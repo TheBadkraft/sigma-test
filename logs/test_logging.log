@@ -1,0 +1,26 @@
+Running test: add 
+[DEBUG] Testcase setup called, count: 1
+[DEBUG] Testcase teardown called, count: 1
+[PASS]
+
+Running test: divide 
+[DEBUG] Testcase setup called, count: 2
+[DEBUG] Testcase teardown called, count: 2
+[PASS]
+
+Running test: divide_by_zero_fails 
+[DEBUG] Testcase setup called, count: 3
+Expectation failed: Expected test to fail but it passed
+
+[DEBUG] Testcase teardown called, count: 3
+[FAIL]
+
+    Expected test to fail but it passed
+
+Running test: divide_by_zero_throws 
+[DEBUG] Testcase setup called, count: 4
+Throw triggered: Division by zero detected
+
+[DEBUG] Testcase teardown called, count: 4
+[PASS]
+

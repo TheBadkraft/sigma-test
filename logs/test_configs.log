@@ -1,0 +1,13 @@
+gcc -Wall -g -fPIC -Iinclude -c test/test_configs.c -o build/test/test_configs.o
+test/test_configs.c: In function ‘init_sigtest_tests’:
+test/test_configs.c:60:35: warning: passing argument 2 of ‘testset’ from incompatible pointer type [-Wincompatible-pointer-types]
+   60 |         testset("features_suite", suite_config, suite_cleanup);
+      |                                   ^~~~~~~~~~~~
+      |                                   |
+      |                                   void (*)(void)
+In file included from test/test_configs.c:2:
+include/sigtest.h:152:34: note: expected ‘void (*)(FILE **)’ but argument is of type ‘void (*)(void)’
+  152 | void testset(string name, void (*config)(FILE **), void (*cleanup)(void));
+      |                           ~~~~~~~^~~~~~~~~~~~~~~~
+gcc build/test/test_configs.o  build/sigtest.o -o build/test/test_configs -g
+Built build/test/test_configs

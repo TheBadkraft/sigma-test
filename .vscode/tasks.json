@@ -1,0 +1,18 @@
+{
+   "version": "2.0.0",
+   "tasks": [
+      {
+         "label": "build_active_test",
+         "type": "shell",
+         "command": "make build_${fileBasenameNoExtension}",
+         "group": {
+            "kind": "build",
+            "isDefault": true
+         },
+         "problemMatcher": [
+            "$gcc"
+         ],
+         "detail": "Build test binary for the active test file"
+      }
+   ]
+}

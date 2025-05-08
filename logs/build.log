@@ -1,0 +1,2 @@
+gcc -Wall -g -fPIC -Iinclude -c src/sigtest.c -o build/sigtest.o
+gcc  build/sigtest.o -o bin/lib/libsigtest.so -shared
