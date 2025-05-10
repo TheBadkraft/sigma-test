@@ -1,40 +1,26 @@
-Test Sigtest Log. Version 0.0.1
+Test Source: test/test_sigtest.c
+Test Sigtest Log. Version 0.1.1
+TestSet 1: core_sigtest_set, registered 9 tests
 Running test: assertTrue 
 [PASS]
-
 Running test: assertFalse 
 [PASS]
-
 Running test: assertEquals 
 [PASS]
-
 Running test: equalsFail 
 [DEBUG] Assertion failed: Expected 3.14528, but was 3.00000 [3.14528 is not equal to 3.00000]
-[FAIL]
-
-    Expected 3.14528, but was 3.00000 [3.14528 is not equal to 3.00000]
-
+[FAIL] Expected 3.14528, but was 3.00000 [3.14528 is not equal to 3.00000]
 Running test: equalsFloatsFail 
 [DEBUG] Assertion failed: Expected 3.14528, but was 3.50000 [3.14528 is not equal to 3.50000]
-[FAIL]
-
-    Expected 3.14528, but was 3.50000 [3.14528 is not equal to 3.50000]
-
+[FAIL] Expected 3.14528, but was 3.50000 [3.14528 is not equal to 3.50000]
 Running test: charEquals 
 [PASS]
-
 Running test: pointersEqual 
 [PASS]
-
 Running test: pointersNotEqual 
-[DEBUG] Assertion failed: Expected 0x7ffc6bebbfb0, but was 0x7ffc6bebbfb4 [Pointers should not be equal]
-[FAIL]
-
-    Expected 0x7ffc6bebbfb0, but was 0x7ffc6bebbfb4 [Pointers should not be equal]
-
+[DEBUG] Assertion failed: Expected 0x7fff711099f0, but was 0x7fff711099f4 [Pointers should not be equal]
+[FAIL] Expected 0x7fff711099f0, but was 0x7fff711099f4 [Pointers should not be equal]
 Running test: stringsNotComparable 
 [DEBUG] Assertion failed: Use Assert.stringEqual for string comparison
-[PASS]
-
-Tests run: 9, Passed: 6, Failed: 3
-
+[FAIL] Use Assert.stringEqual for string comparison
+TestSet 1: core_sigtest_set, 9 tests run, 5 passed, 4 failed, 0 skipped

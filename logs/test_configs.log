@@ -1,15 +1,24 @@
+Test Source: test/test_configs.c
 Suite config called, count: 1
-Running test: varargs_message 
+TestSet 4: configs_set, registered 3 tests
+Running setup
 Testcase setup called, count: 1
+Running test: varargs_message 
+Running teardown
 Testcase teardown called, count: 1
 [PASS]
-
-Running test: suite_config_cleanup 
+Running setup
 Testcase setup called, count: 2
+Running test: suite_config_cleanup 
+Running teardown
 Testcase teardown called, count: 2
 [PASS]
-
-Running test: testcase_setup_teardown 
+Running setup
 Testcase setup called, count: 3
+Running test: testcase_setup_teardown 
+Running teardown
 Testcase teardown called, count: 3
 [PASS]
+Running set cleanup
+Suite cleanup called, count: 1
+TestSet 4: configs_set, 3 tests run, 3 passed, 0 failed, 0 skipped

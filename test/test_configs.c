@@ -6,11 +6,11 @@ static int suite_cleanup_count = 0;
 static int testcase_setup_count = 0;
 static int testcase_teardown_count = 0;
 
-const char *log_file = "logs/test_configs.log";
-
+//	test set config and cleanup
 static void set_config(FILE **log_stream)
 {
-	*log_stream = fopen(log_file, "w");
+	*log_stream = fopen("logs/test_configs.log", "w");
+	writef("Test Source: %s", __FILE__);
 
 	suite_config_count++;
 	writef("Suite config called, count: %d", suite_config_count);
@@ -20,7 +20,7 @@ static void set_cleanup(void)
 	suite_cleanup_count++;
 	writef("Suite cleanup called, count: %d", suite_cleanup_count);
 }
-
+//	test case setup and teardown
 static void testcase_setup(void)
 {
 	testcase_setup_count++;
@@ -31,8 +31,7 @@ static void testcase_teardown(void)
 	testcase_teardown_count++;
 	writef("Testcase teardown called, count: %d", testcase_teardown_count);
 }
-
-// Test cases
+// test cases
 void test_varargs_message(void)
 {
 	int x = 42, y = 43;
@@ -50,11 +49,10 @@ void test_testcase_setup_teardown(void)
 }
 
 // Register test cases
-__attribute__((constructor)) void init_sigtest_tests(void)
+__attribute__((constructor)) void init_configs_tests(void)
 {
-	writef("Registering sigtest_features tests\n");
+	testset("configs_set", set_config, set_cleanup);
 
-	testset("features_suite", set_config, set_cleanup);
 	setup_testcase(testcase_setup);
 	teardown_testcase(testcase_teardown);
 

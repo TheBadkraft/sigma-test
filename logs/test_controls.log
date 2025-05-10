@@ -1,0 +1,38 @@
+Test Source: test/test_controls.c
+TestSet 3: constrols_set, registered 5 tests
+Running setup
+Testcase setup called, count: 1
+Running test: float_fail 
+[DEBUG] Assertion failed: Expected 3.14528, but was 3.00000 [3.14528 is not equal to 3.00000]
+Running teardown
+Testcase teardown called, count: 1
+[FAIL] Expected failure but passed
+Running setup
+Testcase setup called, count: 2
+Running test: string_fail 
+[DEBUG] Assertion failed: Use Assert.stringEqual for string comparison
+Running teardown
+Testcase teardown called, count: 2
+[FAIL] Expected failure but passed
+Running setup
+Testcase setup called, count: 3
+Running test: expect_fail_passes 
+Running teardown
+Testcase teardown called, count: 3
+[FAIL] Expected failure but passed
+Running setup
+Testcase setup called, count: 4
+Running test: complex_failure 
+[DEBUG] Assertion failed: Expected 3.14528, but was 3.00000 [3.14528 != 3.00000]
+[DEBUG] Assertion failed: This should not run
+Running teardown
+Testcase teardown called, count: 4
+[PASS]
+Running setup
+Testcase setup called, count: 5
+Running test: test_expect_exception 
+Throw triggered: Test explicitly thrown
+Running teardown
+Testcase teardown called, count: 5
+[FAIL] Expected throw but passed
+TestSet 3: constrols_set, 5 tests run, 1 passed, 4 failed, 0 skipped

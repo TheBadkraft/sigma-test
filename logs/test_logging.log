@@ -1,26 +1,29 @@
-Running test: add 
+Test Source: test/test_logging.c
+TestSet 2: logging_set, registered 4 tests
+Running setup
 [DEBUG] Testcase setup called, count: 1
+Running test: add 
+Running teardown
 [DEBUG] Testcase teardown called, count: 1
 [PASS]
-
-Running test: divide 
+Running setup
 [DEBUG] Testcase setup called, count: 2
+Running test: divide 
+Running teardown
 [DEBUG] Testcase teardown called, count: 2
 [PASS]
-
-Running test: divide_by_zero_fails 
+Running setup
 [DEBUG] Testcase setup called, count: 3
-Expectation failed: Expected test to fail but it passed
-
+Running test: divide_by_zero_fails 
+Running teardown
 [DEBUG] Testcase teardown called, count: 3
-[FAIL]
-
-    Expected test to fail but it passed
-
-Running test: divide_by_zero_throws 
+[FAIL] Expected failure but passed
+Running setup
 [DEBUG] Testcase setup called, count: 4
+Running test: divide_by_zero_throws 
 Throw triggered: Division by zero detected
-
+Running teardown
 [DEBUG] Testcase teardown called, count: 4
-[PASS]
-
+[FAIL] Expected throw but passed
+Running set cleanup
+TestSet 2: logging_set, 4 tests run, 2 passed, 2 failed, 0 skipped

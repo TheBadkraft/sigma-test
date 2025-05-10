@@ -4,12 +4,13 @@
 	Tests the sigma test library and test runner
 */
 #include "sigtest.h"
-const char *log_file = "logs/test_sigtest.log";
 
 static void set_config(FILE **log_stream)
 {
-	*log_stream = fopen(log_file, "w");
-	writef("Test Sigtest Log. Version 0.0.1");
+	*log_stream = fopen("logs/test_sigtest.log", "w");
+	writef("Test Source: %s", __FILE__);
+
+	writef("Test Sigtest Log. Version %s", sigtest_version());
 }
 
 /**
@@ -120,7 +121,7 @@ void test_stringEqualsFail(void)
 //	register test cases
 __attribute__((constructor)) void init_sigtest_tests(void)
 {
-	testset("Test Sigtest", set_config, NULL);
+	testset("core_sigtest_set", set_config, NULL);
 
 	testcase("assertTrue", test_True);
 	testcase("assertFalse", test_False);

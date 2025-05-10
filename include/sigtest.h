@@ -14,10 +14,21 @@
 #define FALSE 0
 #endif
 
-#define SIGTEST_VERSION "0.1.0"
+#define SIGTEST_VERSION "0.1.1"
+
+struct sigtest_case_s;
+struct sigtest_set_s;
 
 typedef void *object;
 typedef char *string;
+
+typedef struct sigtest_case_s *TestCase;
+typedef struct sigtest_set_s *TestSet;
+
+typedef void (*TestFunc)(void);		 // Test function pointer
+typedef void (*CaseOp)(void);			 // Test case operation function pointer - setup/teardown
+typedef void (*ConfigFunc)(FILE **); // Test set config function pointer
+typedef void (*CleanupFunc)(void);	 // Test set cleanup function pointer
 
 /**
  * @brief Type info enums
@@ -135,35 +146,41 @@ extern const IAssert Assert;
  * @brief Test case structure
  * @detail Encapsulates the name of the test and the test case function pointer
  */
-typedef struct
+typedef struct sigtest_case_s
 {
 	string name;
-	void (*test_func)(void);
-	int expect_fail;	/* Expect failure flag */
-	int expect_throw; /* Expect throw flag */
+	TestFunc test_func; /* Test function pointer */
+	int expect_fail;	  /* Expect failure flag */
+	int expect_throw;	  /* Expect throw flag */
 	struct
 	{
 		TestState state;
 		string message;
-	} testResult;
-} TestCase;
+	} test_result;
+	TestCase next; /* Pointer to the next test case */
+} sigtest_case_s;
 
 /**
  * @brief Test set structure for global setup and cleanup
  */
-typedef struct
+typedef struct sigtest_set_s
 {
-	string name;				 /* Test set name */
-	void (*config)(FILE **); /* Test set config function; optional log stream */
-	void (*cleanup)(void);	 /* Test set cleanup function */
-	void (*setup)(void);		 /* Test case setup function */
-	void (*teardown)(void);	 /* Test case teardown function */
-	FILE *log_stream;			 /* Log stream for the test set */
-} TestSet;
+	string name;			/* Test set name */
+	ConfigFunc config;	/* Test set config function; optional log stream */
+	CleanupFunc cleanup; /* Test set cleanup function */
+	CaseOp setup;			/* Test case setup function */
+	CaseOp teardown;		/* Test case teardown function */
+	FILE *log_stream;		/* Log stream for the test set */
+	TestCase cases;		/* Pointer to the test cases */
+	TestCase tail;			/* Pointer to the last test case */
+	int count;				/* Number of test cases */
+	TestCase current;		/* Current test case */
+	TestSet next;			/* Pointer to the next test set */
+} sigtest_set_s;
 
-extern TestSet test_set;
-extern TestCase tests[100];
-extern int test_count;
+// extern TestSet test_set;
+// extern TestCase tests[100];
+// extern int test_count;
 
 /**
  * @brief Retrieve the SigmaTest version

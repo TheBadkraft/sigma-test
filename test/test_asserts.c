@@ -7,12 +7,10 @@
  * in version 0.1.0.
  */
 
-const char *log_file = "logs/test_asserts.log";
-
 static void set_config(FILE **log_stream)
 {
-	*log_stream = fopen(log_file, "w");
-	writef("New Assert Functions Test Log. Version 0.1.0");
+	*log_stream = fopen("logs/test_asserts.log", "w");
+	writef("Test Source: %s", __FILE__);
 }
 
 //	test cases - NULL checks
@@ -93,9 +91,9 @@ static void test_skip(void)
 }
 
 // Register test cases
-__attribute__((constructor)) void init_sigtest_tests(void)
+__attribute__((constructor)) void init_asserts_tests(void)
 {
-	testset("Test Assert Functions", set_config, NULL);
+	testset("asserts_set", set_config, NULL);
 
 	testcase("Assert Is Null", test_assert_is_null);
 	testcase("Assert Is Not Null", test_assert_is_not_null);

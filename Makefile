@@ -94,11 +94,14 @@ build_%: $(TST_BUILD_DIR)/test_%
 build_test_%: $(TST_BUILD_DIR)/test_%
 	@echo "Built $<"
 
-test: $(TST_TARGET)
-	@$
+test_%: $(TST_BUILD_DIR)/test_%
+	@$<
+
+suite: $(TST_TARGET)
+	@$(TST_TARGET)
 
 clean:
 	find $(BUILD_DIR) -type f -delete
 	find $(BIN_DIR) -type f -delete
 
-.PHONY: all clean lib cli install test test_% build_% build_test_% test_lib
+.PHONY: all clean lib cli install suite test_% build_% build_test_% test_lib

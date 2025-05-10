@@ -1,21 +1,27 @@
-// test_exception.c
+// test_controls.c
 #include "sigtest.h"
 
 static int testcase_setup_count = 0;
 static int testcase_teardown_count = 0;
 
+//	test set config
+static void set_config(FILE **log_stream)
+{
+	*log_stream = fopen("logs/test_controls.log", "w");
+	writef("Test Source: %s", __FILE__);
+}
+//	test case setup and teardown
 static void testcase_setup(void)
 {
 	testcase_setup_count++;
 	writef("Testcase setup called, count: %d", testcase_setup_count);
 }
-
 static void testcase_teardown(void)
 {
 	testcase_teardown_count++;
 	writef("Testcase teardown called, count: %d", testcase_teardown_count);
 }
-
+//	test cases
 void test_float_fail(void)
 {
 	float exp = 3.14528, act = 3.0;
@@ -47,12 +53,10 @@ void test_expect_throw(void)
 }
 
 // Register test cases
-__attribute__((constructor)) void
-init_sigtest_tests(void)
+__attribute__((constructor)) void init_controls_tests(void)
 {
-	writef("Registering exception tests\n");
+	testset("constrols_set", set_config, NULL);
 
-	testset("exception_suite", NULL, NULL);
 	setup_testcase(testcase_setup);
 	teardown_testcase(testcase_teardown);
 
