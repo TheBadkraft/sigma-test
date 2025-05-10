@@ -14,6 +14,8 @@
 #define FALSE 0
 #endif
 
+#define SIGTEST_VERSION "0.1.0"
+
 typedef void *object;
 typedef char *string;
 
@@ -26,8 +28,8 @@ typedef enum
 	FLOAT,
 	DOUBLE,
 	CHAR,
+	PTR,
 	STRING,
-	PTR
 	// Add more types as needed
 } AssertType;
 /**
@@ -36,7 +38,8 @@ typedef enum
 typedef enum
 {
 	PASS,
-	FAIL
+	FAIL,
+	SKIP
 } TestState;
 
 /**
@@ -57,6 +60,18 @@ typedef struct IAssert
 	 */
 	void (*isFalse)(int, const string, ...);
 	/**
+	 * @brief Asserts that a pointer is NULL
+	 * @param  ptr :the pointer to check
+	 * @param  fmt :the format message to display if assertion fails
+	 */
+	void (*isNull)(object, const string, ...);
+	/**
+	 * @brief Asserts that a pointer is not NULL
+	 * @param  ptr :the pointer to check
+	 * @param  fmt :the format message to display if assertion fails
+	 */
+	void (*isNotNull)(object, const string, ...);
+	/**
 	 * @brief Asserts that two values are equal.
 	 * @param expected :expected value.
 	 * @param actual :actual value to compare.
@@ -64,6 +79,30 @@ typedef struct IAssert
 	 * @param fmt :format message to display if assertion fails.
 	 */
 	void (*areEqual)(object, object, AssertType, const string, ...);
+	/**
+	 * @brief Asserts that two values are not equal.
+	 * @param expected :expected value.
+	 * @param actual :actual value to compare.
+	 * @param type :the value types
+	 * @param fmt :format message to display if assertion fails.
+	 */
+	void (*areNotEqual)(object, object, AssertType, const string, ...);
+	/**
+	 * @brief Asserts that a float value is within a specified tolerance.
+	 * @param value :the float value to check.
+	 * @param min :the minimum tolerance value.
+	 * @param max :the maximum tolerance value.
+	 * @param fmt :format message to display if assertion fails.
+	 */
+	void (*floatWithin)(float, float, float, const string, ...);
+	/**
+	 * @brief Asserts that two strings are equal.
+	 * @param expected :expected string.
+	 * @param actual :actual string to compare.
+	 * @param case_sensitive :case sensitivity flag.
+	 * @param fmt :format message to display if assertion fails.
+	 */
+	void (*stringEqual)(string, string, int, const string, ...);
 	/**
 	 * @brief Asserts that an exception is thrown during the execution of the test function.
 	 * @param test_func :the test function to execute.
@@ -75,6 +114,16 @@ typedef struct IAssert
 	 * @param fmt :the format message to display if assertion fails
 	 */
 	void (*throw)(const string, ...);
+	/**
+	 * @brief Fails a testcase immediately and logs the message
+	 * @param fmt :the format message to display
+	 */
+	void (*fail)(const string, ...);
+	/**
+	 * @brief Skips the testcase setting the state as skipped and logs the message
+	 * @param fmt :the format message to display
+	 */
+	void (*skip)(const string, ...);
 } IAssert;
 
 /**
@@ -116,6 +165,10 @@ extern TestSet test_set;
 extern TestCase tests[100];
 extern int test_count;
 
+/**
+ * @brief Retrieve the SigmaTest version
+ */
+const char *sigtest_version(void);
 /**
  * @brief Registers a new test into the test array
  * @param  name :the test name

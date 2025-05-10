@@ -1,4 +1,5 @@
-/*	sigtest.c
+/*
+	sigtest.c
 	David Boarman
 */
 #include "sigtest.h"
@@ -104,7 +105,7 @@ void set_test_context(TestState result, const string message)
 		}
 
 		current_test->testResult.message = message ? strdup(message) : NULL;
-		if (result == FAIL)
+		if (result != PASS)
 		{
 			// If the test fails, we stop further assertions for this test
 			longjmp(jmpbuffer, 1); // Assumes jmpbuffer is set up elsewhere
@@ -112,7 +113,13 @@ void set_test_context(TestState result, const string message)
 	}
 }
 
-// 	Implementations for assertions (public interface)
+//	Implementations for CLI interface
+const char *sigtest_version(void)
+{
+	return SIGTEST_VERSION;
+}
+
+// Implementations for assertions (public interface)
 /*
 	Asserts the condition is TRUE
 */
@@ -124,7 +131,7 @@ static void assert_is_true(int condition, const string fmt, ...)
 	if (!condition)
 	{
 		string errMessage = get_msg(fmt, MESSAGE_TRUE_FAIL, args);
-		debugf("Assertion failed: %s\n", errMessage);
+		debugf("Assertion failed: %s", errMessage);
 		set_test_context(FAIL, errMessage);
 	}
 	else
@@ -145,7 +152,49 @@ static void assert_is_false(int condition, const string fmt, ...)
 	if (condition)
 	{
 		string errMessage = get_msg(fmt, MESSAGE_TRUE_FAIL, args);
-		debugf("Assertion failed: %s\n", errMessage);
+		debugf("Assertion failed: %s", errMessage);
+		set_test_context(FAIL, errMessage);
+	}
+	else
+	{
+		set_test_context(PASS, NULL);
+	}
+
+	va_end(args);
+}
+/*
+	Asserts the pointer is NULL
+*/
+static void assert_is_null(object ptr, const string fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	if (ptr != NULL)
+	{
+		string errMessage = get_msg(fmt, "Pointer is not NULL", args);
+		debugf("Assertion failed: %s", errMessage);
+		set_test_context(FAIL, errMessage);
+	}
+	else
+	{
+		set_test_context(PASS, NULL);
+	}
+
+	va_end(args);
+}
+/*
+	Asserts the pointer is not NULL
+*/
+static void assert_is_not_null(object ptr, const string fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	if (ptr == NULL)
+	{
+		string errMessage = get_msg(fmt, "Pointer is NULL", args);
+		debugf("Assertion failed: %s", errMessage);
 		set_test_context(FAIL, errMessage);
 	}
 	else
@@ -205,14 +254,6 @@ static void assert_are_equal(object expected, object actual, AssertType type, co
 		}
 
 		break;
-	case STRING:
-		if (strcasecmp((string)expected, (string)actual) != 0)
-		{
-			failMessage = gen_equals_fail_msg(expected, actual, type, fmt, args);
-			result = FAIL;
-		}
-
-		break;
 	case PTR:
 		if (expected != actual)
 		{
@@ -221,14 +262,149 @@ static void assert_are_equal(object expected, object actual, AssertType type, co
 		}
 
 		break;
+	case STRING:
+		failMessage = "Use Assert.stringEqual for string comparison";
+		result = FAIL;
+
+		break;
+	default:
+
+		failMessage = "Unsupported type for comparison";
+		result = FAIL;
+
+		break;
 		// Add cases for other types as needed
 	}
+
 	if (result == FAIL)
 	{
 		debugf("Assertion failed: %s", failMessage); /* Log failure */
 	}
 
 	set_test_context(result, failMessage);
+
+	va_end(args);
+}
+/*
+	Asserts two values are not equal
+*/
+static void assert_are_not_equal(object expected, object actual, AssertType type, const string fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	// char messageBuffer[256];
+	enum
+	{
+		PASS,
+		FAIL
+	} result = PASS;
+	string failMessage = NULL;
+
+	switch (type)
+	{
+	case INT:
+		if (*(int *)expected == *(int *)actual)
+		{
+			failMessage = gen_equals_fail_msg(expected, actual, type, fmt, args);
+			result = FAIL;
+		}
+
+		break;
+	case FLOAT:
+		if (fabs(*(float *)expected - *(float *)actual) <= FLT_EPSILON)
+		{
+			failMessage = gen_equals_fail_msg(expected, actual, type, fmt, args);
+			result = FAIL;
+		}
+
+		break;
+	case DOUBLE:
+		if (fabs(*(double *)expected - *(double *)actual) <= DBL_EPSILON)
+		{
+			failMessage = gen_equals_fail_msg(expected, actual, type, fmt, args);
+			result = FAIL;
+		}
+
+		break;
+	case CHAR:
+		if (*(char *)expected == *(char *)actual)
+		{
+			failMessage = gen_equals_fail_msg(expected, actual, type, fmt, args);
+			result = FAIL;
+		}
+
+		break;
+	case PTR:
+		if (expected == actual)
+		{
+			failMessage = gen_equals_fail_msg(expected, actual, type, fmt, args);
+			result = FAIL;
+		}
+
+		break;
+	case STRING:
+		failMessage = "Use Assert.stringEqual for string comparison";
+		result = FAIL;
+
+		break;
+	default:
+
+		failMessage = "Unsupported type for comparison";
+		result = FAIL;
+
+		break; // Add cases for other types as needed
+	}
+
+	if (result == FAIL)
+	{
+		debugf("Assertion failed: %s", failMessage); /* Log failure */
+	}
+
+	set_test_context(result, failMessage);
+
+	va_end(args);
+}
+/*
+	Asserts that a float value is within a specified tolerance
+*/
+static void assert_float_within(float value, float min, float max, const string fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	if (value < min || value > max)
+	{
+		string errMessage = get_msg(fmt, "Value out of range", args);
+		debugf("Assertion failed: %s", errMessage);
+		set_test_context(FAIL, errMessage);
+	}
+	else
+	{
+		set_test_context(PASS, NULL);
+	}
+
+	va_end(args);
+}
+/*
+	Asserts that two strings are equal with respect to case sensitivity
+*/
+static void assert_string_equal(string expected, string actual, int case_sensitive, const string fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	int equal = case_sensitive ? strcmp(expected, actual) == 0 : strcasecmp(expected, actual) == 0;
+	if (!equal)
+	{
+		string failMessage = gen_equals_fail_msg(expected, actual, STRING, fmt, args);
+		debugf("Assertion failed: %s", failMessage);
+		set_test_context(FAIL, failMessage);
+	}
+	else
+	{
+		set_test_context(PASS, NULL);
+	}
 
 	va_end(args);
 }
@@ -241,8 +417,36 @@ static void assert_throw(const string fmt, ...)
 	va_start(args, fmt);
 
 	string err_message = get_msg(fmt, "Explicit throw triggered", args);
-	writef("Throw triggered: %s\n", err_message);
+	writef("Throw triggered: %s", err_message);
 	set_test_context(FAIL, err_message);
+
+	va_end(args);
+}
+/*
+	Assert fail
+*/
+static void assert_fail(const string fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	string errMessage = get_msg(fmt, "Explicit failure triggered", args);
+	debugf("Assertion failed: %s", errMessage);
+	set_test_context(FAIL, errMessage);
+
+	va_end(args);
+}
+/*
+	Assert skip
+*/
+static void assert_skip(const string fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	string errMessage = get_msg(fmt, "Testcase skipped", args);
+	debugf("Control Triggered: %s", errMessage);
+	set_test_context(SKIP, errMessage);
 
 	va_end(args);
 }
@@ -253,8 +457,15 @@ static void assert_throw(const string fmt, ...)
 const IAssert Assert = {
 	 .isTrue = assert_is_true,
 	 .isFalse = assert_is_false,
+	 .isNull = assert_is_null,
+	 .isNotNull = assert_is_not_null,
 	 .areEqual = assert_are_equal,
+	 .areNotEqual = assert_are_not_equal,
+	 .floatWithin = assert_float_within,
+	 .stringEqual = assert_string_equal,
 	 .throw = assert_throw,
+	 .fail = assert_fail,
+	 .skip = assert_skip,
 };
 
 // Test registry
@@ -319,8 +530,9 @@ void testset(string name, void (*config)(FILE **), void (*cleanup)(void))
 	test_set.log_stream = stdout;
 }
 
+#ifdef SIGTEST_TEST
 /*
-	test runner entry point
+	test executor entry point
 */
 int main(int argc, string *argv)
 {
@@ -436,7 +648,12 @@ int main(int argc, string *argv)
 
 	return failed_tests == 0 ? PASS : FAIL;
 }
+#endif // SIGTEST_TEST
 
+/*
+	Helper function to write formatted output to the log stream
+*/
+// This function is used internally to write formatted messages to the given stream
 void vfwritef(FILE *stream, const char *fmt, va_list args)
 {
 	stream = stream ? stream : stdout;
@@ -447,7 +664,7 @@ void vfwritef(FILE *stream, const char *fmt, va_list args)
 	/* Flush the specific stream we’re writing to */
 	fflush(stream);
 }
-
+// This function is used to write formatted messages to the log stream
 void writef(const char *fmt, ...)
 {
 	va_list args;
@@ -455,7 +672,7 @@ void writef(const char *fmt, ...)
 	vfwritef(test_set.log_stream, fmt, args);
 	va_end(args);
 }
-
+// This function is used to write formatted debug messages to the log stream
 void debugf(const char *fmt, ...)
 {
 	char msg_buffer[64];

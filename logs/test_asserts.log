@@ -1,0 +1,48 @@
+New Assert Functions Test Log. Version 0.1.0
+Running test: Assert Is Null 
+[PASS]
+
+Running test: Assert Is Not Null 
+[PASS]
+
+Running test: Assert Int Not Equal 
+[PASS]
+
+Running test: Assert Float Not Equal 
+[PASS]
+
+Running test: Assert Strings Not Comparable 
+[DEBUG] Assertion failed: Use Assert.stringEqual for string comparison
+[PASS]
+
+Running test: Assert Float Within 
+[PASS]
+
+Running test: Assert Float Not Within 
+[DEBUG] Assertion failed: 5.00 is not within 6.00 and 7.00
+[PASS]
+
+Running test: Assert String Equal 
+[PASS]
+
+Running test: Assert String Not Equal 
+[DEBUG] Assertion failed: Expected hello, but was world [hello should not equal world]
+[PASS]
+
+Running test: Assert String Case Insensitive 
+[PASS]
+
+Running test: Assert String Case Sensitive 
+[DEBUG] Assertion failed: Expected Hello, but was hello [Hello should not equal hello (case sensitive)]
+[PASS]
+
+Running test: Assert Fail Test Case 
+[DEBUG] Assertion failed: Trigger test case failure
+[PASS]
+
+Running test: Assert Skip Test Case 
+[DEBUG] Control Triggered: Trigger test case skip
+[PASS]
+
+Tests run: 13, Passed: 13, Failed: 0
+
