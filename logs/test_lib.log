@@ -1,0 +1,25 @@
+Demonstration Test Log. Version 0.1.0
+Running test: Add Function 
+[PASS]
+
+Running test: Subtract Function 
+[PASS]
+
+Running test: Divide Function 
+[PASS]
+
+Running test: Is Positive Function 
+[PASS]
+
+Running test: Null Pointer 
+[PASS]
+
+Running test: String Comparison 
+[PASS]
+
+Running test: Skip Test 
+[DEBUG] Control Triggered: Closed during remodel
+[PASS]
+
+Tests run: 7, Passed: 7, Failed: 0
+

@@ -12,6 +12,7 @@ BUILD_DIR = build
 BIN_DIR = bin
 LIB_DIR = $(BIN_DIR)/lib
 TEST_DIR = test
+LIB_TEST_DIR = test/lib
 TST_BUILD_DIR = $(BUILD_DIR)/test
 
 SRCS = $(wildcard $(SRC_DIR)/*.c)
@@ -20,8 +21,11 @@ OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(filter-out $(CLI_SRC), $(S
 CLI_OBJ = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(CLI_SRC))
 TST_SRCS = $(wildcard $(TEST_DIR)/*.c)
 TST_OBJS = $(patsubst $(TEST_DIR)/%.c, $(TST_BUILD_DIR)/%.o, $(TST_SRCS))
+LIB_TST_SRCS = $(wildcard $(LIB_TEST_DIR)/*.c)
+LIB_TST_OBJS = $(patsubst $(LIB_TEST_DIR)/%.c, $(TST_BUILD_DIR)/%.o, $(LIB_TST_SRCS))
 
 HEADER = $(INCLUDE_DIR)/sigtest.h
+LIB_TEST_HEADER = $(LIB_TEST_DIR)/math_utils.h
 
 LIB_TARGET = $(LIB_DIR)/libsigtest.so
 BIN_TARGET = $(BIN_DIR)/sigtest
@@ -41,7 +45,7 @@ $(LIB_TARGET): $(OBJS)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADER)
 	@mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(TST_CFLAGS) -c $< -o $@
 
 $(CLI_OBJ): $(CLI_SRC) $(HEADER)
 	@mkdir -p $(BUILD_DIR)
@@ -50,6 +54,10 @@ $(CLI_OBJ): $(CLI_SRC) $(HEADER)
 $(TST_BUILD_DIR)/%.o: $(TEST_DIR)/%.c $(HEADER)
 	@mkdir -p $(TST_BUILD_DIR)
 	$(CC) $(TST_CFLAGS) -c $< -o $@
+
+$(TST_BUILD_DIR)/%.o: $(LIB_TEST_DIR)/%.c $(HEADER) $(LIB_TEST_HEADER)
+	@mkdir -p $(TST_BUILD_DIR)
+	$(CC) $(TST_CFLAGS) -I$(LIB_TEST_DIR) -c $< -o $@
 
 $(BIN_TARGET): $(LIB_TARGET) $(CLI_OBJ)
 	@mkdir -p $(BIN_DIR)
@@ -63,11 +71,18 @@ $(TST_BUILD_DIR)/test_%: $(TST_BUILD_DIR)/test_%.o $(OBJS)
 	@mkdir -p $(TST_BUILD_DIR)
 	$(CC) $< $(OBJS) -o $@ $(TST_LDFLAGS)
 
+$(TST_BUILD_DIR)/test_lib: $(TST_BUILD_DIR)/test_lib.o $(TST_BUILD_DIR)/math_utils.o $(LIB_TARGET)
+	@mkdir -p $(TST_BUILD_DIR)
+	$(CC) $(TST_BUILD_DIR)/test_lib.o $(TST_BUILD_DIR)/math_utils.o -o $@ -L$(LIB_DIR) -lsigtest $(TST_LDFLAGS)
+
 lib: $(LIB_TARGET) $(HEADER)
 
 cli: $(BIN_TARGET)
 
-install: $(LIB_TARGET) $(HEADER)
+test_lib: $(TST_BUILD_DIR)/test_lib
+	@$<
+
+install: $(LIB_TARGET) $(HEADER) $(BIN_TARGET)
 	sudo cp $(LIB_TARGET) $(INSTALL_LIB_DIR)/
 	sudo cp $(INCLUDE_DIR)/sigtest.h $(INSTALL_INCLUDE_DIR)/
 	sudo cp $(BIN_TARGET) $(INSTALL_BIN_DIR)/
@@ -80,13 +95,10 @@ build_test_%: $(TST_BUILD_DIR)/test_%
 	@echo "Built $<"
 
 test: $(TST_TARGET)
-	@$<
-
-test_%: $(TST_BUILD_DIR)/test_%
-	@$<
+	@$
 
 clean:
 	find $(BUILD_DIR) -type f -delete
 	find $(BIN_DIR) -type f -delete
 
-.PHONY: all clean lib cli install test test_% build_% build_test_%
+.PHONY: all clean lib cli install test test_% build_% build_test_% test_lib

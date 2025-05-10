@@ -1,5 +1,6 @@
 // test_asserts.c
 #include "sigtest.h"
+#include <stdlib.h>
 
 /*
  * Test case for the new assert functions added to the IAssert interface
