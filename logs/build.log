@@ -1,2 +1,0 @@
-gcc -Wall -g -fPIC -Iinclude -DSIGTEST_TEST -c src/sigtest.c -o build/sigtest.o
-gcc  build/sigtest.o -o bin/lib/libsigtest.so -shared

@@ -11,7 +11,9 @@
 #include <strings.h>
 #include <stdarg.h>
 
-// Global test set instance
+#define SIGTEST_VERSION "0.2.1"
+
+// Global test set "registry"
 static TestSet test_sets = NULL;
 static TestSet current_set = NULL;
 
@@ -26,6 +28,47 @@ static jmp_buf jmpbuffer;
 #define EXPECT_THROW_FAIL "Expected test to throw but it didn't"
 
 //	Implementations for internal helpers
+// format write message to stream
+void fwritef(FILE *, const char *, ...);
+// cleanup test runner
+static void cleanup_test_runner(void)
+{
+	if (!test_sets)
+		return; // Already cleaned up
+
+	TestSet set = test_sets;
+	while (set)
+	{
+		TestSet next = set->next;
+		// free test cases
+		TestCase tc = set->cases;
+		while (tc)
+		{
+			TestCase next_tc = tc->next;
+			free(tc->name);
+			if (tc->test_result.message)
+				free(tc->test_result.message);
+
+			free(tc);
+			tc = next_tc;
+		}
+
+		// free test set
+		free(set->name);
+		if (set->log_stream != stdout && set->log_stream)
+		{
+			fclose(set->log_stream);
+			set->log_stream = NULL;
+		}
+
+		free(set);
+		set = next;
+	}
+
+	// Reset the test set registry
+	test_sets = NULL;
+	current_set = NULL;
+}
 //	generate formatted message
 static string format_msg(const string fmt, va_list args)
 {
@@ -472,6 +515,18 @@ const IAssert Assert = {
 */
 void testset(string name, ConfigFunc config, CleanupFunc cleanup)
 {
+	// ensure cleanup_test_runner is registered only once
+	static int atexit_registered = 0;
+	if (!atexit_registered)
+	{
+		if (atexit(cleanup_test_runner) != 0)
+		{
+			writef("Failed to register `cleanup_test_runner` with atexit\n");
+			exit(EXIT_FAILURE);
+		}
+		atexit_registered = 1;
+	}
+
 	TestSet set = malloc(sizeof(struct sigtest_set_s));
 	if (!set)
 	{
@@ -480,7 +535,6 @@ void testset(string name, ConfigFunc config, CleanupFunc cleanup)
 	}
 
 	set->name = strdup(name);
-	set->config = config;
 	set->cleanup = cleanup;
 	set->setup = NULL;
 	set->teardown = NULL;
@@ -490,6 +544,26 @@ void testset(string name, ConfigFunc config, CleanupFunc cleanup)
 	set->count = 0;
 	set->current = NULL;
 	set->next = test_sets;
+
+	// Execute config immediately if provided
+	if (config)
+	{
+		writef("Configuring test set: %s", name);
+		config(&set->log_stream);
+		if (!set->log_stream)
+		{
+			set->log_stream = stdout; // Fallback to stdout if config fails
+		}
+	}
+	// Handle allocation failure after config
+	if (!set->name)
+	{
+		if (set->log_stream != stdout && set->log_stream)
+			fclose(set->log_stream);
+		free(set);
+		writef("Failed to allocate memory for test set name\n");
+		exit(EXIT_FAILURE);
+	}
 
 	test_sets = set;
 	current_set = set;
@@ -507,10 +581,15 @@ void testcase(string name, TestFunc func)
 	TestCase tc = malloc(sizeof(struct sigtest_case_s));
 	if (!tc)
 	{
-		writef("Failed to allocate memory for test case\n");
+		writef("Failed to allocate memory for test case `%s`\n", name);
 		exit(EXIT_FAILURE);
 	}
 	tc->name = strdup(name);
+	if (!tc->name)
+	{
+		writef("Failed to allocate memory for test case name `%s`\n", name);
+		exit(EXIT_FAILURE); // cleanup_test_sets will handle freeing
+	}
 	tc->test_func = func;
 	tc->expect_fail = FALSE;
 	tc->expect_throw = FALSE;
@@ -528,6 +607,7 @@ void testcase(string name, TestFunc func)
 		current_set->tail->next = tc;
 		current_set->tail = tc;
 	}
+
 	current_set->count++;
 }
 /*
@@ -543,15 +623,14 @@ void fail_testcase(string name, void (*func)(void))
 	TestCase tc = malloc(sizeof(struct sigtest_case_s));
 	if (!tc)
 	{
-		writef("Failed to allocate memory for test case\n");
+		writef("Failed to allocate memory for test case `%s`\n", name);
 		exit(EXIT_FAILURE);
 	}
 	tc->name = strdup(name);
 	if (!tc->name)
 	{
-		writef("Failed to allocate memory for test case name\n");
-		free(tc);
-		exit(EXIT_FAILURE);
+		writef("Failed to allocate memory for test case name `%s`\n", name);
+		exit(EXIT_FAILURE); // cleanup_test_sets will handle freeing
 	}
 	tc->test_func = func;
 	tc->expect_fail = TRUE;
@@ -570,6 +649,7 @@ void fail_testcase(string name, void (*func)(void))
 		current_set->tail->next = tc;
 		current_set->tail = tc;
 	}
+
 	current_set->count++;
 }
 /*
@@ -585,15 +665,14 @@ void testcase_throws(string name, void (*func)(void))
 	TestCase tc = malloc(sizeof(struct sigtest_case_s));
 	if (!tc)
 	{
-		writef("Failed to allocate memory for test case\n");
+		writef("Failed to allocate memory for test case `%s`\n", name);
 		exit(EXIT_FAILURE);
 	}
 	tc->name = strdup(name);
 	if (!tc->name)
 	{
-		writef("Failed to allocate memory for test case name\n");
-		free(tc);
-		exit(EXIT_FAILURE);
+		writef("Failed to allocate memory for test case name `%s`\n", name);
+		exit(EXIT_FAILURE); // cleanup_test_sets will handle freeing
 	}
 	tc->test_func = func;
 	tc->expect_fail = FALSE;
@@ -612,6 +691,7 @@ void testcase_throws(string name, void (*func)(void))
 		current_set->tail->next = tc;
 		current_set->tail = tc;
 	}
+
 	current_set->count++;
 }
 /*
@@ -639,39 +719,48 @@ void teardown_testcase(CaseOp teardown)
 /*
 	test executor entry point
 */
-int main(int argc, char *argv[])
+int main(void)
+{
+	int retResult = run_tests(test_sets, NULL);
+	cleanup_test_runner();
+
+	return retResult;
+}
+#endif // SIGTEST_TEST
+
+// the actual test runner
+int run_tests(TestSet sets, SigtestHooks hooks)
 {
 	int total_tests = 0, passed_tests = 0, failed_tests = 0, skipped_tests = 0;
 	int set_sequence = 1;
 
+	// Log total registered test sets for debugging
+	int total_sets = 0;
+	for (TestSet set = test_sets; set; set = set->next)
+		total_sets++;
+	fwritef(stdout, "Total test sets registered: %d", total_sets);
+
 	for (TestSet set = test_sets; set; set = set->next, set_sequence++)
 	{
 		int tc_total = 0, tc_passed = 0, tc_failed = 0, tc_skipped = 0;
-		if (set->config)
-		{
-			writef("Running set configuration");
-			set->config(&set->log_stream);
-			if (!set->log_stream)
-				set->log_stream = stdout;
-		}
-		else
-		{
+		if (!set->log_stream)
 			set->log_stream = stdout;
-		}
 
-		writef("TestSet %d: %s, registered %d tests", set_sequence, set->name, set->count);
+		// Set current_set to the executing set for writef/debugf
+		current_set = set;
 
+		fwritef(set->log_stream, "TestSet %d: %s, registered %d tests", set_sequence, set->name, set->count);
+		fwritef(set->log_stream, "=======================================================");
 		for (TestCase tc = set->cases; tc; tc = tc->next)
 		{
 			set->current = tc; // Set current test for set_test_context
 			if (set->setup)
 			{
-				writef("Running setup");
+				fwritef(set->log_stream, "Running setup");
 				set->setup();
 			}
-			writef("Running test: %s ", tc->name);
+			fwritef(set->log_stream, "Running test: %s ", tc->name);
 
-			// Set up jump buffer
 			if (setjmp(jmpbuffer) == 0)
 			{
 				tc->test_func();
@@ -679,66 +768,90 @@ int main(int argc, char *argv[])
 
 			if (set->teardown)
 			{
-				writef("Running teardown");
+				fwritef(set->log_stream, "Running teardown");
 				set->teardown();
 			}
 
 			// Handle expect_fail and expect_throw
-			if (tc->expect_fail && tc->test_result.state != FAIL)
+			if (tc->expect_fail)
 			{
-				tc->test_result.state = FAIL;
-				tc->test_result.message = strdup("Expected failure but passed");
+				if (tc->test_result.state == FAIL)
+				{
+					tc->test_result.state = PASS;
+					if (tc->test_result.message)
+					{
+						free(tc->test_result.message);
+						tc->test_result.message = strdup("Expected failure occurred");
+					}
+				}
+				else if (tc->test_result.state != SKIP)
+				{
+					tc->test_result.state = FAIL;
+					if (tc->test_result.message)
+						free(tc->test_result.message);
+					tc->test_result.message = strdup("Expected failure but passed");
+				}
 			}
-			else if (tc->expect_throw && tc->test_result.state != FAIL)
+			else if (tc->expect_throw)
 			{
-				tc->test_result.state = FAIL;
-				tc->test_result.message = strdup("Expected throw but passed");
-			}
-			else if (!tc->expect_fail && !tc->expect_throw && tc->test_result.state == FAIL)
-			{
-				tc->test_result.state = FAIL;
+				if (tc->test_result.state == FAIL)
+				{
+					tc->test_result.state = PASS;
+					if (tc->test_result.message)
+					{
+						free(tc->test_result.message);
+						tc->test_result.message = strdup("Expected throw occurred");
+					}
+				}
+				else if (tc->test_result.state != SKIP)
+				{
+					tc->test_result.state = FAIL;
+					if (tc->test_result.message)
+						free(tc->test_result.message);
+					tc->test_result.message = strdup("Expected throw but passed");
+				}
 			}
 
 			if (tc->test_result.state == PASS)
 			{
-				writef("[PASS]");
+				fwritef(set->log_stream, "[PASS]");
 				tc_passed++;
 				passed_tests++;
 			}
 			else if (tc->test_result.state == SKIP)
 			{
-				writef("[SKIP]");
+				fwritef(set->log_stream, "[SKIP]");
 				tc_skipped++;
 				skipped_tests++;
 			}
 			else
 			{
-				writef("[FAIL] %s", tc->test_result.message ? tc->test_result.message : "");
+				fwritef(set->log_stream, "[FAIL] %s", tc->test_result.message ? tc->test_result.message : "");
 				tc_failed++;
 				failed_tests++;
 			}
 			tc_total++;
 			total_tests++;
-			set->current = NULL; // Clear after test
+			set->current = NULL;
 		}
 
 		if (set->cleanup)
 		{
-			writef("Running set cleanup");
+			fwritef(set->log_stream, "Running set cleanup");
 			set->cleanup();
 		}
-		writef("TestSet %d: %s, %d tests run, %d passed, %d failed, %d skipped",
-				 set_sequence, set->name, tc_total, tc_passed, tc_failed, tc_skipped);
-
-		if (set->log_stream != stdout)
-			fclose(set->log_stream);
+		fwritef(set->log_stream, "=======================================================");
+		fwritef(set->log_stream, "TestSet %d: %s, %d tests run, %d passed, %d failed, %d skipped",
+				  set_sequence, set->name, tc_total, tc_passed, tc_failed, tc_skipped);
 	}
 
-	fprintf(stdout, "Tests run: %d, Passed: %d, Failed: %d, Skipped: %d\n",
+	// Final output to stdout
+	fwritef(stdout, "=======================================================");
+	fwritef(stdout, "Tests run: %d, Passed: %d, Failed: %d, Skipped: %d\n",
 			  total_tests, passed_tests, failed_tests, skipped_tests);
-	return failed_tests == 0 ? 0 : 1;
+
+	return failed_tests > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
-#endif // SIGTEST_TEST
 
 /*
 	Helper function to write formatted output to the log stream
@@ -754,12 +867,22 @@ void vfwritef(FILE *stream, const char *fmt, va_list args)
 	/* Flush the specific stream we’re writing to */
 	fflush(stream);
 }
+// This function is used to write formatted messages to the given stream
+void fwritef(FILE *stream, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	vfwritef(stream, fmt, args);
+
+	va_end(args);
+}
 // This function is used to write formatted messages to the log stream
 void writef(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	vfwritef(current_set->log_stream, fmt, args);
+	vfwritef(current_set ? current_set->log_stream : stdout, fmt, args);
 	va_end(args);
 }
 // This function is used to write formatted debug messages to the log stream
@@ -770,6 +893,6 @@ void debugf(const char *fmt, ...)
 	va_list args;
 	va_start(args, fmt);
 	snprintf(msg_buffer, sizeof(msg_buffer), "[DEBUG] %s", fmt);
-	vfwritef(current_set->log_stream, msg_buffer, args);
+	vfwritef(current_set ? current_set->log_stream : stdout, msg_buffer, args);
 	va_end(args);
 }

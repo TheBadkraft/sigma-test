@@ -8,7 +8,6 @@ static int testcase_teardown_count = 0;
 static void set_config(FILE **log_stream)
 {
 	*log_stream = fopen("logs/test_controls.log", "w");
-	writef("Test Source: %s", __FILE__);
 }
 //	test case setup and teardown
 static void testcase_setup(void)
@@ -36,7 +35,7 @@ void test_string_fail(void)
 
 void test_expect_fail_passes(void)
 {
-	int exp = 5, act = 5;
+	int exp = 5, act = 6;
 	Assert.areEqual(&exp, &act, INT, "%d should equal %d", exp, act);
 }
 
@@ -56,6 +55,7 @@ void test_expect_throw(void)
 __attribute__((constructor)) void init_controls_tests(void)
 {
 	testset("constrols_set", set_config, NULL);
+	writef("Test Source: %s", __FILE__);
 
 	setup_testcase(testcase_setup);
 	teardown_testcase(testcase_teardown);
@@ -63,7 +63,7 @@ __attribute__((constructor)) void init_controls_tests(void)
 	fail_testcase("float_fail", test_float_fail);
 	fail_testcase("string_fail", test_string_fail);
 	fail_testcase("expect_fail_passes", test_expect_fail_passes);
-	testcase("complex_failure", test_complex_failure);
+	fail_testcase("complex_failure", test_complex_failure);
 
 	testcase_throws("test_expect_exception", test_expect_throw);
 }

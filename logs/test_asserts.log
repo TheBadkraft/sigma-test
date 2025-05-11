@@ -1,5 +1,6 @@
 Test Source: test/test_asserts.c
-TestSet 5: asserts_set, registered 13 tests
+TestSet 1: asserts_set, registered 13 tests
+=======================================================
 Running test: Assert Is Null 
 [PASS]
 Running test: Assert Is Not Null 
@@ -10,26 +11,27 @@ Running test: Assert Float Not Equal
 [PASS]
 Running test: Assert Strings Not Comparable 
 [DEBUG] Assertion failed: Use Assert.stringEqual for string comparison
-[FAIL] Expected failure but passed
+[PASS]
 Running test: Assert Float Within 
 [PASS]
 Running test: Assert Float Not Within 
 [DEBUG] Assertion failed: 5.00 is not within 6.00 and 7.00
-[FAIL] Expected failure but passed
+[PASS]
 Running test: Assert String Equal 
 [PASS]
 Running test: Assert String Not Equal 
 [DEBUG] Assertion failed: Expected hello, but was world [hello should not equal world]
-[FAIL] Expected failure but passed
+[PASS]
 Running test: Assert String Case Insensitive 
 [PASS]
 Running test: Assert String Case Sensitive 
 [DEBUG] Assertion failed: Expected Hello, but was hello [Hello should not equal hello (case sensitive)]
-[FAIL] Expected failure but passed
+[PASS]
 Running test: Assert Fail Test Case 
 [DEBUG] Assertion failed: Trigger test case failure
-[FAIL] Expected failure but passed
+[PASS]
 Running test: Assert Skip Test Case 
 [DEBUG] Control Triggered: Trigger test case skip
-[FAIL] Expected failure but passed
-TestSet 5: asserts_set, 13 tests run, 7 passed, 6 failed, 0 skipped
+[SKIP]
+=======================================================
+TestSet 1: asserts_set, 13 tests run, 12 passed, 0 failed, 1 skipped
