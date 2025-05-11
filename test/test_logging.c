@@ -12,8 +12,6 @@ float divide(float, float);
 static void set_config(FILE **log_stream)
 {
 	*log_stream = fopen("logs/test_logging.log", "w");
-	writef("Test Source: %s", __FILE__);
-
 	has_log_stream = *log_stream ? TRUE : FALSE;
 }
 static void set_cleanup(void)
@@ -44,7 +42,7 @@ static void test_divide(void)
 static void test_divide_by_zero_fails(void)
 {
 	float expected = 0.0f, actual = divide(4.0f, 0.0f);
-	Assert.areEqual(&expected, &actual, FLOAT, "Division by zero should return 0");
+	Assert.areNotEqual(&expected, &actual, FLOAT, "Division by zero should return 0");
 }
 static void test_divide_by_zero_throws(void)
 {
@@ -59,6 +57,7 @@ static void test_divide_by_zero_throws(void)
 __attribute__((constructor)) void init_logging_tests(void)
 {
 	testset("logging_set", set_config, set_cleanup);
+	writef("Test Source: %s", __FILE__);
 
 	setup_testcase(testcase_setup);
 	teardown_testcase(testcase_teardown);

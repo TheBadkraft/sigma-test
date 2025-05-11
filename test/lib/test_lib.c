@@ -58,7 +58,7 @@ static void test_string(void)
 }
 static void test_skip(void)
 {
-	Assert.skip("Closed during remodel");
+	Assert.skip("Closed for remodel");
 }
 
 // Register test cases

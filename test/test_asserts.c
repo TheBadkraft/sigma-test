@@ -10,7 +10,6 @@
 static void set_config(FILE **log_stream)
 {
 	*log_stream = fopen("logs/test_asserts.log", "w");
-	writef("Test Source: %s", __FILE__);
 }
 
 //	test cases - NULL checks
@@ -94,6 +93,7 @@ static void test_skip(void)
 __attribute__((constructor)) void init_asserts_tests(void)
 {
 	testset("asserts_set", set_config, NULL);
+	writef("Test Source: %s", __FILE__);
 
 	testcase("Assert Is Null", test_assert_is_null);
 	testcase("Assert Is Not Null", test_assert_is_not_null);

@@ -10,26 +10,21 @@ static int testcase_teardown_count = 0;
 static void set_config(FILE **log_stream)
 {
 	*log_stream = fopen("logs/test_configs.log", "w");
-	writef("Test Source: %s", __FILE__);
 
 	suite_config_count++;
-	writef("Suite config called, count: %d", suite_config_count);
 }
 static void set_cleanup(void)
 {
 	suite_cleanup_count++;
-	writef("Suite cleanup called, count: %d", suite_cleanup_count);
 }
 //	test case setup and teardown
 static void testcase_setup(void)
 {
 	testcase_setup_count++;
-	writef("Testcase setup called, count: %d", testcase_setup_count);
 }
 static void testcase_teardown(void)
 {
 	testcase_teardown_count++;
-	writef("Testcase teardown called, count: %d", testcase_teardown_count);
 }
 // test cases
 void test_varargs_message(void)
@@ -39,8 +34,8 @@ void test_varargs_message(void)
 }
 void test_suite_config_cleanup(void)
 {
-	Assert.isTrue(suite_config_count == 1, "Suite config should be called once, got %d", suite_config_count);
-	Assert.isTrue(suite_cleanup_count == 0, "Suite cleanup should not yet be called");
+	Assert.isTrue(suite_config_count == 1, "Set config should be called once, got %d", suite_config_count);
+	Assert.isTrue(suite_cleanup_count == 0, "Set cleanup should not yet be called");
 }
 void test_testcase_setup_teardown(void)
 {
@@ -52,6 +47,7 @@ void test_testcase_setup_teardown(void)
 __attribute__((constructor)) void init_configs_tests(void)
 {
 	testset("configs_set", set_config, set_cleanup);
+	writef("Test Source: %s", __FILE__);
 
 	setup_testcase(testcase_setup);
 	teardown_testcase(testcase_teardown);

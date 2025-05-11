@@ -1,5 +1,7 @@
 Test Source: test/test_logging.c
+Configuring test set: core_sigtest_set
 TestSet 2: logging_set, registered 4 tests
+=======================================================
 Running setup
 [DEBUG] Testcase setup called, count: 1
 Running test: add 
@@ -15,15 +17,17 @@ Running teardown
 Running setup
 [DEBUG] Testcase setup called, count: 3
 Running test: divide_by_zero_fails 
+[DEBUG] Assertion failed: Expected 0.00000, but was 0.00000 [Division by zero should return 0]
 Running teardown
 [DEBUG] Testcase teardown called, count: 3
-[FAIL] Expected failure but passed
+[PASS]
 Running setup
 [DEBUG] Testcase setup called, count: 4
 Running test: divide_by_zero_throws 
 Throw triggered: Division by zero detected
 Running teardown
 [DEBUG] Testcase teardown called, count: 4
-[FAIL] Expected throw but passed
+[PASS]
 Running set cleanup
-TestSet 2: logging_set, 4 tests run, 2 passed, 2 failed, 0 skipped
+=======================================================
+TestSet 2: logging_set, 4 tests run, 4 passed, 0 failed, 0 skipped

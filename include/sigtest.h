@@ -14,16 +14,16 @@
 #define FALSE 0
 #endif
 
-#define SIGTEST_VERSION "0.1.1"
-
 struct sigtest_case_s;
 struct sigtest_set_s;
+struct sigtest_hooks_s;
 
 typedef void *object;
 typedef char *string;
 
 typedef struct sigtest_case_s *TestCase;
 typedef struct sigtest_set_s *TestSet;
+typedef struct sigtest_hooks_s *SigtestHooks;
 
 typedef void (*TestFunc)(void);		 // Test function pointer
 typedef void (*CaseOp)(void);			 // Test case operation function pointer - setup/teardown
@@ -166,7 +166,6 @@ typedef struct sigtest_case_s
 typedef struct sigtest_set_s
 {
 	string name;			/* Test set name */
-	ConfigFunc config;	/* Test set config function; optional log stream */
 	CleanupFunc cleanup; /* Test set cleanup function */
 	CaseOp setup;			/* Test case setup function */
 	CaseOp teardown;		/* Test case teardown function */
@@ -185,7 +184,8 @@ typedef struct sigtest_set_s
 /**
  * @brief Retrieve the SigmaTest version
  */
-const char *sigtest_version(void);
+const char *
+sigtest_version(void);
 /**
  * @brief Registers a new test into the test array
  * @param  name :the test name
@@ -229,4 +229,23 @@ void writef(const char *, ...);
  * @brief Debug logging function with stream flushing
  */
 void debugf(const char *, ...);
+
+#ifdef SIGTEST_CLI
+/**
+ * @brief Test hooks structure
+ */
+typedef struct sigtest_hooks_s
+{
+	// Hooks for runtime extensions
+	string name; /* Hook name */
+} sigtest_hooks_s;
+#endif // SIGTEST_CLI
+/**
+ * @brief Registers a test set with the given name
+ * @param  sets :the test sets under test
+ * @param  hooks :the test runner hooks
+ * @return 0 if all tests pass, 1 if any test fails
+ */
+int run_tests(TestSet, SigtestHooks);
+
 #endif // SIGTEST_H

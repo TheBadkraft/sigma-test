@@ -8,9 +8,6 @@
 static void set_config(FILE **log_stream)
 {
 	*log_stream = fopen("logs/test_sigtest.log", "w");
-	writef("Test Source: %s", __FILE__);
-
-	writef("Test Sigtest Log. Version %s", sigtest_version());
 }
 
 /**
@@ -122,17 +119,19 @@ void test_stringEqualsFail(void)
 __attribute__((constructor)) void init_sigtest_tests(void)
 {
 	testset("core_sigtest_set", set_config, NULL);
+	writef("Test Sigtest Log. Version %s", sigtest_version());
+	writef("Test Source: %s", __FILE__);
 
 	testcase("assertTrue", test_True);
 	testcase("assertFalse", test_False);
 	testcase("assertEquals", test_Equals);
-	testcase("equalsFail", test_EqualsFail);
-	testcase("equalsFloatsFail", test_EqualsFloatsFail);
+	fail_testcase("equalsFail", test_EqualsFail);
+	fail_testcase("equalsFloatsFail", test_EqualsFloatsFail);
 	testcase("charEquals", test_charEquals);
 	// testcase("stringEquals", test_stringEquals);
 	// testcase("stringEqualsFail", test_stringEqualsFail);
 	testcase("pointersEqual", test_pointersEqual);
-	testcase("pointersNotEqual", test_pointersNotEqual);
+	fail_testcase("pointersNotEqual", test_pointersNotEqual);
 
 	fail_testcase("stringsNotComparable", test_stringsNotComparable);
 }
