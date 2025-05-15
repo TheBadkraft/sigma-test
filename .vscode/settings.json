@@ -1,5 +1,6 @@
 {
    "files.associations": {
-      "sigtest.h": "c"
+      "sigtest.h": "c",
+      "sigtest_cli.h": "c"
    }
 }

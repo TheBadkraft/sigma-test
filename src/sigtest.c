@@ -1,6 +1,9 @@
 /*
 	sigtest.c
 	David Boarman
+
+	David Boarman
+	2024-09-01
 */
 #include "sigtest.h"
 #include <stdlib.h>
@@ -10,11 +13,12 @@
 #include <string.h> // 	for jmp_buf and related functions
 #include <strings.h>
 #include <stdarg.h>
+#include <time.h>
 
-#define SIGTEST_VERSION "0.2.1"
+#define SIGTEST_VERSION "0.2.2"
 
 // Global test set "registry"
-static TestSet test_sets = NULL;
+TestSet test_sets = NULL;
 static TestSet current_set = NULL;
 
 // Static buffer for jump
@@ -736,11 +740,11 @@ int run_tests(TestSet sets, SigtestHooks hooks)
 
 	// Log total registered test sets for debugging
 	int total_sets = 0;
-	for (TestSet set = test_sets; set; set = set->next)
+	for (TestSet set = sets; set; set = set->next)
 		total_sets++;
 	fwritef(stdout, "Total test sets registered: %d", total_sets);
 
-	for (TestSet set = test_sets; set; set = set->next, set_sequence++)
+	for (TestSet set = sets; set; set = set->next, set_sequence++)
 	{
 		int tc_total = 0, tc_passed = 0, tc_failed = 0, tc_skipped = 0;
 		if (!set->log_stream)
