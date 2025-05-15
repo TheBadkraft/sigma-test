@@ -1,0 +1,42 @@
+/*	src/sigtest_cli.h
+   Header for the sigma test CLI component
+
+   David Boarman
+   2025-05-11
+*/
+#ifndef SIGTEST_CLI_H
+#define SIGTEST_CLI_H
+
+#include "sigtest.h"
+#include <stdio.h>
+
+// CLI specific declarations
+void cleanup_test_runner(void);
+void fwritef(FILE *, const char *, ...);
+OutputFormat parse_output_format(const char *);
+
+// Initialize CLI hooks
+void init_cli_hooks(SigtestHooks *, const char *, FILE *);
+
+// CLI state structure
+typedef struct
+{
+   enum
+   {
+      START,
+      TEST_SRC,
+      DONE,
+      ERROR
+   } state;
+   enum
+   {
+      DEFAULT,
+      SIMPLE,
+      VERSION,
+   } mode;
+   const char *test_src;
+} CliState;
+
+#define MAX_TEMPLATE_LEN 64
+
+#endif // SIGTEST_CLI_H

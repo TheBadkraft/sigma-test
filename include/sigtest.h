@@ -1,5 +1,8 @@
 /*	sigtest.h
 	Header for the sigma test assert interface
+
+	David Boarman
+	2024-09-01
 */
 #ifndef SIGTEST_H
 #define SIGTEST_H
@@ -25,10 +28,22 @@ typedef struct sigtest_case_s *TestCase;
 typedef struct sigtest_set_s *TestSet;
 typedef struct sigtest_hooks_s *SigtestHooks;
 
-typedef void (*TestFunc)(void);		 // Test function pointer
-typedef void (*CaseOp)(void);			 // Test case operation function pointer - setup/teardown
-typedef void (*ConfigFunc)(FILE **); // Test set config function pointer
-typedef void (*CleanupFunc)(void);	 // Test set cleanup function pointer
+typedef void (*TestFunc)(void);																	// Test function pointer
+typedef void (*CaseOp)(void);																		// Test case operation function pointer - setup/teardown
+typedef void (*ConfigFunc)(FILE **);															// Test set config function pointer
+typedef void (*CleanupFunc)(void);																// Test set cleanup function pointer
+typedef void (*OutputFunc)(FILE *, const TestSet, const TestCase, const object); // Output formatting function
+typedef void (*SetOp)(const TestSet, object);												// Test set operation function pointer
+
+//	Output format types
+typedef enum
+{
+	FORMAT_DEFAULT,
+	FORMAT_JUNIT,
+	FORMAT_SIMPLE
+} OutputFormat;
+
+extern TestSet test_sets; // Global test set registry
 
 /**
  * @brief Type info enums
@@ -177,10 +192,6 @@ typedef struct sigtest_set_s
 	TestSet next;			/* Pointer to the next test set */
 } sigtest_set_s;
 
-// extern TestSet test_set;
-// extern TestCase tests[100];
-// extern int test_count;
-
 /**
  * @brief Retrieve the SigmaTest version
  */
@@ -237,9 +248,23 @@ void debugf(const char *, ...);
 typedef struct sigtest_hooks_s
 {
 	// Hooks for runtime extensions
-	string name; /* Hook name */
+	void (*before_test)(void *context);					  // Called before each test case
+	void (*after_test)(void *context);					  // Called after each test case
+	void (*before_set)(const TestSet, void *context); // Called before each test set
+	void (*after_set)(const TestSet, void *context);  // Called after each test set
+	OutputFunc format_output;								  // Output formatting function
+	OutputFormat format_type;								  // Output format type
+	void *context;												  // User-defined data
 } sigtest_hooks_s;
 #endif // SIGTEST_CLI
+
+/**
+ * @brief Initialize default hooks with the specified output format
+ * @param format :the desitred output format
+ * @return pointer to the initialized SigtestHooks
+ */
+SigtestHooks init_hooks(OutputFormat);
+
 /**
  * @brief Registers a test set with the given name
  * @param  sets :the test sets under test
