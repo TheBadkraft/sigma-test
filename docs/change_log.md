@@ -1,4 +1,4 @@
-#### **Version 0.2.2**  _[ 2025-05-15 ]_  
+#### **Version 0.2.2**  -- _2025-05-15_  
 
 Implementing groundwork to provide CI (_Continuous Integration_) features. First we had to implement some basic functionality.  
 
