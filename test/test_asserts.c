@@ -93,7 +93,7 @@ static void test_skip(void)
 __attribute__((constructor)) void init_asserts_tests(void)
 {
 	testset("asserts_set", set_config, NULL);
-	writef("Test Source: %s", __FILE__);
+	writelnf("Test Source: %s", __FILE__);
 
 	testcase("Assert Is Null", test_assert_is_null);
 	testcase("Assert Is Not Null", test_assert_is_not_null);

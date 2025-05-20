@@ -3,7 +3,7 @@ CFLAGS = -Wall -g -fPIC -I$(INCLUDE_DIR)
 LDFLAGS = -shared
 TST_CFLAGS = $(CFLAGS) -DSIGTEST_TEST
 TST_LDFLAGS = -g
-CLI_CFLAGS = $(CFLAGS) -DSIGTEST_CLI
+CLI_CFLAGS = $(CFLAGS)
 CLI_LDFLAGS = -g -L$(LIB_DIR) -lsigtest -Wl,-rpath,$(LIB_DIR)
 
 SRC_DIR = src
@@ -14,6 +14,8 @@ LIB_DIR = $(BIN_DIR)/lib
 TEST_DIR = test
 LIB_TEST_DIR = test/lib
 TST_BUILD_DIR = $(BUILD_DIR)/test
+TEMPLATE_DIR = templates
+RESOURCE_DIR = resources
 
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 CLI_SRC = $(SRC_DIR)/sigtest_cli.c
@@ -30,6 +32,11 @@ LIB_TEST_HEADER = $(LIB_TEST_DIR)/math_utils.h
 LIB_TARGET = $(LIB_DIR)/libsigtest.so
 BIN_TARGET = $(BIN_DIR)/sigtest
 TST_TARGET = $(TST_BUILD_DIR)/run_tests
+# objectify & templates
+OBJECTIFY_TARGET = $(BIN_DIR)/objectify
+TEMPLATE_SRC = $(TEMPLATE_DIR)/main.txt
+TEMPLATE_OUT = $(SRC_DIR)/$(TEMPLATE_DIR)/main_template.ct
+TEMPLATE_OBJ = $(RESOURCE_DIR)/main_template.ro
 
 INSTALL_LIB_DIR = /usr/lib
 INSTALL_INCLUDE_DIR = /usr/include
@@ -59,6 +66,18 @@ $(TST_BUILD_DIR)/%.o: $(LIB_TEST_DIR)/%.c $(HEADER) $(LIB_TEST_HEADER)
 	@mkdir -p $(TST_BUILD_DIR)
 	$(CC) $(TST_CFLAGS) -I$(LIB_TEST_DIR) -c $< -o $@
 
+$(OBJECTIFY_TARGET): tools/objectify.c $(HEADER)
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $<
+
+$(TEMPLATE_OUT): $(TEMPLATE_SRC) $(OBJECTIFY_TARGET)
+	@mkdir -p $(SRC_DIR)/$(TEMPLATE_DIR)
+	$(BIN_DIR)/objectify $(TEMPLATE_SRC)
+
+$(TEMPLATE_OBJ): $(TEMPLATE_OUT)
+	@mkdir -p $(RESOURCE_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(BIN_TARGET): $(LIB_TARGET) $(CLI_OBJ)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CLI_OBJ) -o $(BIN_TARGET) $(CLI_LDFLAGS)
@@ -78,6 +97,8 @@ $(TST_BUILD_DIR)/test_lib: $(TST_BUILD_DIR)/test_lib.o $(TST_BUILD_DIR)/math_uti
 lib: $(LIB_TARGET) $(HEADER)
 
 cli: $(BIN_TARGET)
+
+objectify: $(OBJECTIFY_TARGET)
 
 test_lib: $(TST_BUILD_DIR)/test_lib
 	@$<
@@ -103,5 +124,7 @@ suite: $(TST_TARGET)
 clean:
 	find $(BUILD_DIR) -type f -delete
 	find $(BIN_DIR) -type f -delete
+clean-objectify:
+	rm -rf $(SRC_DIR)/templates/*.ct $(RESOURCE_DIR)/*.ro
 
-.PHONY: all clean lib cli install suite test_% build_% build_test_% test_lib
+.PHONY: all clean clean-objectify lib cli install suite test_% build_% build_test_% test_lib objectify

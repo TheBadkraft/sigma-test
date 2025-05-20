@@ -1,37 +1,18 @@
 Test Source: test/test_asserts.c
-TestSet 1: asserts_set, registered 13 tests
-=======================================================
-Running test: Assert Is Null 
-[PASS]
-Running test: Assert Is Not Null 
-[PASS]
-Running test: Assert Int Not Equal 
-[PASS]
-Running test: Assert Float Not Equal 
-[PASS]
-Running test: Assert Strings Not Comparable 
-[DEBUG] Assertion failed: Use Assert.stringEqual for string comparison
-[PASS]
-Running test: Assert Float Within 
-[PASS]
-Running test: Assert Float Not Within 
-[DEBUG] Assertion failed: 5.00 is not within 6.00 and 7.00
-[PASS]
-Running test: Assert String Equal 
-[PASS]
-Running test: Assert String Not Equal 
-[DEBUG] Assertion failed: Expected hello, but was world [hello should not equal world]
-[PASS]
-Running test: Assert String Case Insensitive 
-[PASS]
-Running test: Assert String Case Sensitive 
-[DEBUG] Assertion failed: Expected Hello, but was hello [Hello should not equal hello (case sensitive)]
-[PASS]
-Running test: Assert Fail Test Case 
-[DEBUG] Assertion failed: Trigger test case failure
-[PASS]
-Running test: Assert Skip Test Case 
-[DEBUG] Control Triggered: Trigger test case skip
-[SKIP]
-=======================================================
-TestSet 1: asserts_set, 13 tests run, 12 passed, 0 failed, 1 skipped
+[1] asserts_set              :  13 :         2025-05-20  10:12:43
+=================================================================
+Running: Assert Is Null                           1.7 us  [PASS]
+Running: Assert Is Not Null                       0.7 us  [PASS]
+Running: Assert Int Not Equal                     0.6 us  [PASS]
+Running: Assert Float Not Equal                   0.3 us  [PASS]
+Running: Assert Strings Not Comparable            1.9 us  [PASS]
+Running: Assert Float Within                      0.4 us  [PASS]
+Running: Assert Float Not Within                  3.1 us  [PASS]
+Running: Assert String Equal                      1.5 us  [PASS]
+Running: Assert String Not Equal                  6.7 us  [PASS]
+Running: Assert String Case Insensitive           0.4 us  [PASS]
+Running: Assert String Case Sensitive             2.5 us  [PASS]
+Running: Assert Fail Test Case                    0.7 us  [PASS]
+Running: Assert Skip Test Case                    0.4 us  [SKIP]
+=================================================================
+[1]     TESTS= 13        PASS= 12        FAIL=  0        SKIP=  1

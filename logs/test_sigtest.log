@@ -1,28 +1,15 @@
-Test Sigtest Log. Version 0.2.0
+Test Sigtest Log. Version 0.3.0
 Test Source: test/test_sigtest.c
-TestSet 1: core_sigtest_set, registered 9 tests
-=======================================================
-Running test: assertTrue 
-[PASS]
-Running test: assertFalse 
-[PASS]
-Running test: assertEquals 
-[PASS]
-Running test: equalsFail 
-[DEBUG] Assertion failed: Expected 3.14528, but was 3.00000 [3.14528 is not equal to 3.00000]
-[PASS]
-Running test: equalsFloatsFail 
-[DEBUG] Assertion failed: Expected 3.14528, but was 3.50000 [3.14528 is not equal to 3.50000]
-[PASS]
-Running test: charEquals 
-[PASS]
-Running test: pointersEqual 
-[PASS]
-Running test: pointersNotEqual 
-[DEBUG] Assertion failed: Expected 0x7ffd2de7b190, but was 0x7ffd2de7b194 [Pointers should not be equal]
-[PASS]
-Running test: stringsNotComparable 
-[DEBUG] Assertion failed: Use Assert.stringEqual for string comparison
-[PASS]
-=======================================================
-TestSet 1: core_sigtest_set, 9 tests run, 9 passed, 0 failed, 0 skipped
+[1] core_sigtest_set         :   9 :         2025-05-20  10:13:08
+=================================================================
+Running: assertTrue                               1.8 us  [PASS]
+Running: assertFalse                              0.3 us  [PASS]
+Running: assertEquals                             0.5 us  [PASS]
+Running: equalsFail                               9.8 us  [PASS]
+Running: equalsFloatsFail                         2.7 us  [PASS]
+Running: charEquals                               0.2 us  [PASS]
+Running: pointersEqual                            0.3 us  [PASS]
+Running: pointersNotEqual                         2.3 us  [PASS]
+Running: stringsNotComparable                     0.4 us  [PASS]
+=================================================================
+[1]     TESTS=  9        PASS=  9        FAIL=  0        SKIP=  0

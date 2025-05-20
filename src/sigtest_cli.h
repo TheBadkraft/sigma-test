@@ -25,6 +25,7 @@ typedef struct
    {
       START,
       TEST_SRC,
+      FORMAT,
       DONE,
       ERROR
    } state;
@@ -35,6 +36,9 @@ typedef struct
       VERSION,
    } mode;
    const char *test_src;
+   const char *output_format;
+   int no_clean;
+   int verbose;
 } CliState;
 
 #define MAX_TEMPLATE_LEN 64

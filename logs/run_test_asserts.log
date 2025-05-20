@@ -1,5 +1,4 @@
-Configuring test set: asserts_set
-Total test sets registered: 1
-=======================================================
+[2025-05-20  10:12:43]   Test Set:                    asserts_set
+=================================================================
 Tests run: 13, Passed: 12, Failed: 0, Skipped: 1
-
+Total test sets registered: 1
