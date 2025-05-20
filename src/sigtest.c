@@ -939,7 +939,7 @@ static void default_on_test_result(const TestSet set, const TestCase tc, object 
 	}
 	else
 	{
-		set->logger->log("Running: %-36s  %6.1f us  [%s]\n", tc->name, elapsed_ms * 1000.0, status);
+		set->logger->log("Running: %-37s  %6.3f us  [%s]\n", tc->name, elapsed_ms * 1000.0, status);
 	}
 
 	if (ctx->verbose && tc->test_result.message)
@@ -947,9 +947,11 @@ static void default_on_test_result(const TestSet set, const TestCase tc, object 
 		LogLevel level = (tc->test_result.state == PASS) ? LOG_INFO : LOG_DEBUG;
 		set->logger->debug(level, "\tmessage= %s\n", tc->test_result.message ? tc->test_result.message : "NULL");
 	}
-
-	// set->logger->debug(LOG_DEBUG, "\tstart= %ld.%09ld", ctx->start.tv_sec, ctx->start.tv_nsec);
-	// set->logger->log("\tend=   %ld.%09ld\n", ctx->end.tv_sec, ctx->end.tv_nsec);
+	if (ctx->verbose)
+	{
+		set->logger->debug(LOG_DEBUG, "\tstart= %ld.%04ld", ctx->start.tv_sec, ctx->start.tv_nsec);
+		set->logger->log("\tend=   %ld.%04ld\n", ctx->end.tv_sec, ctx->end.tv_nsec);
+	}
 }
 static void default_on_error(const char *message, object context)
 {
@@ -1022,22 +1024,30 @@ int run_tests(TestSet sets, SigtestHooks test_hooks)
 	SigtestHooks hooks = NULL;
 	for (TestSet set = sets; set; set = set->next)
 	{
-		//	check set hooks
+		/*
+			We need to check if we have a test_hooks set; if not we need to use the default hooks.
+			If we have a set->hooks, and a test_hooks, we need to prioritize the test_hooks.
+
+			CLI options:
+			  `-s`: simple mode, no hooks will be provided by the test runner; however, the test
+					  set could register hooks and those will be used.
+				default (no flag): the test runner can provide hooks intended to override the test
+					  set hooks. If NULL is passed, then the default hooks will be used.
+		 */
 		if (!test_hooks && !set->hooks)
 		{
 			//	set the default hooks
 			hooks = hook_registry->hooks;
 		}
-		else if (set->hooks)
+		else if (test_hooks)
 		{
-			// it doesn't matter, if set->hooks then it has priority and test_hooks is irrelevant
-			hooks = set->hooks;
-		}
-		else if (test_hooks && !set->hooks)
-		{
-			//	set the default hooks
 			hooks = test_hooks;
 		}
+		else
+		{
+			hooks = set->hooks;
+		}
+
 		total_sets++;
 	}
 	if (total_sets == 0)
@@ -1071,16 +1081,15 @@ int run_tests(TestSet sets, SigtestHooks test_hooks)
 		for (TestCase tc = set->cases; tc; tc = tc->next)
 		{
 			set->current = tc; // Set current test for set_test_context
-			//	test case setup
-			if (set->setup)
-			{
-				set->logger->log("Running setup");
-				set->setup();
-			}
-			//	test case before start
+			//	before test case setup
 			if (hooks && hooks->before_test)
 			{
 				hooks->before_test(hooks->context);
+			}
+			//	test case setup
+			if (set->setup)
+			{
+				set->setup();
 			}
 			// on start test handler
 			if (hooks && hooks->on_start_test)
@@ -1104,19 +1113,19 @@ int run_tests(TestSet sets, SigtestHooks test_hooks)
 			{
 				hooks->on_end_test(hooks->context);
 			}
-			//	test casse after execution
-			if (hooks && hooks->after_test)
-			{
-				hooks->after_test(hooks->context);
-			}
-			//	test case cleanup
+			//	test case teardown
 			if (set->teardown)
 			{
 				set->logger->log("Running teardown");
 				set->teardown();
 			}
+			//	after test case teardown
+			if (hooks && hooks->after_test)
+			{
+				hooks->after_test(hooks->context);
+			}
 
-			// Handle expect_fail and expect_throw
+			// process test result
 			if (tc->expect_fail)
 			{
 				if (tc->test_result.state == FAIL)
@@ -1155,7 +1164,7 @@ int run_tests(TestSet sets, SigtestHooks test_hooks)
 					tc->test_result.message = strdup("Expected throw but passed");
 				}
 			}
-
+			//	process test result
 			if (tc->test_result.state == PASS)
 			{
 				if (hooks && hooks->on_test_result)
@@ -1199,12 +1208,6 @@ int run_tests(TestSet sets, SigtestHooks test_hooks)
 			total_tests++;
 			set->current = NULL;
 		}
-
-		if (set->cleanup)
-		{
-			set->logger->log("Running set cleanup");
-			set->cleanup();
-		}
 		// Call after_set hook if defined
 		if (hooks && hooks->after_set)
 		{
@@ -1215,6 +1218,11 @@ int run_tests(TestSet sets, SigtestHooks test_hooks)
 			fwritelnf(set->log_stream, "=================================================================");
 			fwritelnf(set->log_stream, "[%d]     TESTS=%3d        PASS=%3d        FAIL=%3d        SKIP=%3d",
 						 set_sequence, tc_total, tc_passed, tc_failed, tc_skipped);
+		}
+
+		if (set->cleanup)
+		{
+			set->cleanup();
 		}
 	}
 
