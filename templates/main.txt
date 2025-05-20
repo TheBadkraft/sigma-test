@@ -1,0 +1,41 @@
+#include "sigtest.h"
+#include <stdlib.h>
+extern TestSet test_sets;
+extern SigtestHooks init_hooks(OutputFormat);
+static void format_junit_output(FILE *stream, const TestSet set, const TestCase tc, const object context) {
+    fprintf(stream, "<testcase name=\"%s\">\n", tc->name);
+    if (tc->test_result.state == %FAIL_STATE% || (tc->expect_fail && tc->test_result.message)) {
+        fprintf(stream, "<failure message=\"%s\"/>\n", tc->test_result.message ? tc->test_result.message : "Unknown failure");
+    } else if (tc->test_result.state == %SKIP_STATE%) {
+        fprintf(stream, "<skipped/>\n");
+    }
+    fprintf(stream, "</testcase>\n");
+}
+static void junit_before_set(const TestSet set, object context) {
+    if (set->log_stream) {
+        fprintf(set->log_stream, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        fprintf(set->log_stream, "<testsuites>\n");
+        fprintf(set->log_stream, "<testsuite name=\"%s\" tests=\"%d\">\n", set->name, set->count);
+    }
+}
+static void junit_after_set(const TestSet set, object context) {
+    if (set->log_stream) {
+        fprintf(set->log_stream, "</testsuite>\n");
+        fprintf(set->log_stream, "</testsuites>\n");
+    }
+}
+int main(void) {
+    SigtestHooks hooks = init_hooks(%FORMAT%);
+    if (hooks == NULL) {
+        fprintf(stderr, "Error: Test Hooks allocation failed\n");
+        return 1;
+    }
+    if (hooks->format_type == %JUNIT_FORMAT%) {
+        hooks->before_set = junit_before_set;
+        hooks->after_set = junit_after_set;
+        hooks->format_output = format_junit_output;
+    }
+    int retRun = run_tests(test_sets, hooks);
+    free(hooks);
+    return retRun;
+}

@@ -1,6 +1,0 @@
-Assertion failed: 0.000000
-Running test: test: assertTrue
-Running test: test: assertFalse
-Running test: test: assertEquals
-Running test: test: equalsFail
-Completed running 4 tests.

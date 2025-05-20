@@ -20,6 +20,7 @@
 struct sigtest_case_s;
 struct sigtest_set_s;
 struct sigtest_hooks_s;
+struct sigtest_logger_s;
 
 typedef void *object;
 typedef char *string;
@@ -27,13 +28,24 @@ typedef char *string;
 typedef struct sigtest_case_s *TestCase;
 typedef struct sigtest_set_s *TestSet;
 typedef struct sigtest_hooks_s *SigtestHooks;
+typedef struct sigtest_logger_s *Logger;
 
-typedef void (*TestFunc)(void);																	// Test function pointer
-typedef void (*CaseOp)(void);																		// Test case operation function pointer - setup/teardown
-typedef void (*ConfigFunc)(FILE **);															// Test set config function pointer
-typedef void (*CleanupFunc)(void);																// Test set cleanup function pointer
-typedef void (*OutputFunc)(FILE *, const TestSet, const TestCase, const object); // Output formatting function
-typedef void (*SetOp)(const TestSet, object);												// Test set operation function pointer
+typedef void (*TestFunc)(void);														 // Test function pointer
+typedef void (*CaseOp)(void);															 // Test case operation function pointer - setup/teardown
+typedef void (*ConfigFunc)(FILE **);												 // Test set config function pointer
+typedef void (*CleanupFunc)(void);													 // Test set cleanup function pointer
+typedef void (*OutputFunc)(const TestSet, const TestCase, const object); // Output formatting function
+typedef void (*SetOp)(const TestSet, object);									 // Test set operation function pointer
+
+// Output log levels
+typedef enum
+{
+	LOG_DEBUG,	 // Debug level logging
+	LOG_INFO,	 // Info level logging
+	LOG_WARNING, // Warning level logging
+	LOG_ERROR,	 // Error (non-fatal) level logging
+	LOG_FATAL,	 // Fatal error level logging
+} LogLevel;
 
 //	Output format types
 typedef enum
@@ -130,12 +142,6 @@ typedef struct IAssert
 	 */
 	void (*stringEqual)(string, string, int, const string, ...);
 	/**
-	 * @brief Asserts that an exception is thrown during the execution of the test function.
-	 * @param test_func :the test function to execute.
-	 * @param fmt :format message to display if assertion fails.
-	 */
-	void (*expectException)(void (*test_func)(void), const string, ...);
-	/**
 	 * @brief Assert throws an exception
 	 * @param fmt :the format message to display if assertion fails
 	 */
@@ -176,6 +182,15 @@ typedef struct sigtest_case_s
 } sigtest_case_s;
 
 /**
+ * @brief Logger structure for test set logging
+ */
+typedef struct sigtest_logger_s
+{
+	void (*log)(const char *, ...);				  /* Logging function pointer */
+	void (*debug)(LogLevel, const char *, ...); /* Debug logging function pointer */
+} sigtest_logger_s;
+
+/**
  * @brief Test set structure for global setup and cleanup
  */
 typedef struct sigtest_set_s
@@ -190,6 +205,8 @@ typedef struct sigtest_set_s
 	int count;				/* Number of test cases */
 	TestCase current;		/* Current test case */
 	TestSet next;			/* Pointer to the next test set */
+	SigtestHooks hooks;	/* Hooks for the test set */
+	Logger logger;			/* Logger for the test set */
 } sigtest_set_s;
 
 /**
@@ -231,39 +248,76 @@ void teardown_testcase(void (*teardown)(void));
  * @param  cleanup :the test set cleanup function
  */
 void testset(string name, void (*config)(FILE **), void (*cleanup)(void));
+/**
+ * @brief Register test hooks
+ * @param hooks :the test set hooks
+ */
+void register_hook(SigtestHooks);
 
 /**
- * @brief Logging function with stream flushing
+ * @brief Writes a formatted message to the current test set's log stream
+ * @param fmt :the format message to display
+ * @param ... :the variable arguments for the format message
  */
 void writef(const char *, ...);
 /**
- * @brief Debug logging function with stream flushing
+ * @brief Writes a formatted message with newline to the current test set's log stream
+ * @param fmt :the format message to display
+ * @param ... :the variable arguments for the format message
  */
-void debugf(const char *, ...);
+void writelnf(const char *, ...);
+/**
+ * @brief Writes a formatted message to the specified stream
+ * @param stream :the output stream to write to
+ * @param fmt :the format message to display
+ * @param ... :the variable arguments for the format message
+ */
+void fwritef(FILE *, const char *, ...);
+/**
+ * @brief Writes a formatted message with newline to the specified stream
+ * @param stream :the output stream to write to
+ * @param fmt :the format message to display
+ * @param ... :the variable arguments for the format message
+ */
+void fwritelnf(FILE *, const char *, ...);
 
-#ifdef SIGTEST_CLI
+/**
+ * @brief Formats the current time into a buffer using the specified format
+ * @param buffer :output buffer for the timestamp (at least 32 chars)
+ * @param format :strftime format string (e.g., "%Y-%m-%dT%H:%M:%S")
+ */
+void get_timestamp(char *, const char *);
+
 /**
  * @brief Test hooks structure
  */
 typedef struct sigtest_hooks_s
 {
-	// Hooks for runtime extensions
-	void (*before_test)(void *context);					  // Called before each test case
-	void (*after_test)(void *context);					  // Called after each test case
-	void (*before_set)(const TestSet, void *context); // Called before each test set
-	void (*after_set)(const TestSet, void *context);  // Called after each test set
-	OutputFunc format_output;								  // Output formatting function
-	OutputFormat format_type;								  // Output format type
-	void *context;												  // User-defined data
+	const char *name;																// Hooks label
+	void (*before_set)(const TestSet, object);							// Called before each test set
+	void (*after_set)(const TestSet, object);								// Called after each test set
+	void (*before_test)(object);												// Called before each test case
+	void (*after_test)(object);												// Called after each test case
+	void (*on_start_test)(object);											// Callback at the start of a test
+	void (*on_end_test)(object);												// Callback at the end of a test
+	void (*on_error)(const char *, object);								// Callback on error
+	void (*on_test_result)(const TestSet, const TestCase, object); // Callback on test result
+	void *context;																	// User-defined data
 } sigtest_hooks_s;
-#endif // SIGTEST_CLI
-
+/**
+ * @brief Test hooks registry
+ */
+typedef struct hook_registry_s
+{
+	SigtestHooks hooks;
+	struct hook_registry_s *next;
+} HookRegistry;
 /**
  * @brief Initialize default hooks with the specified output format
- * @param format :the desitred output format
+ * @param name :the desitred output format
  * @return pointer to the initialized SigtestHooks
  */
-SigtestHooks init_hooks(OutputFormat);
+SigtestHooks init_hooks(const char *);
 
 /**
  * @brief Registers a test set with the given name
