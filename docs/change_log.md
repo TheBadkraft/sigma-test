@@ -9,7 +9,7 @@ If the workflow of Makefile were followed, `make test_<setname>` clearly compile
 
 The remaining tasks will focus on adding CI features for output, automation, and failure tracking. At the moment, `sigtest` (CLI) does not run an entire suite like `make run_tests` will. That will be added likely following the two planned output formats: **JUnit XML** and **Enhanced Console**.
 
-#### **Version 0.3.0**  -- _2025-05-120_  
+#### **Version 0.3.0**  -- _2025-05-20_  
 
 Decoupled logging from the `sigtest_hooks` structure. Not that logging was directly coupled, but by the appearance of the structure, *logging* appeared to be the sole purpose for altering behaviors.
 
