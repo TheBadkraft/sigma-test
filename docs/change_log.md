@@ -17,11 +17,11 @@ Decoupled logging from the `sigtest_hooks` structure. Not that logging was direc
 - The run test process has been decoupled from logging behaviors. Instead of calling the output functions - `writelnf` or `fwritelnf` - the test runner calls the set's `logger->log` (or `->debug`) function.
 - Test runner now checks for default `hooks` and puts a priority on the `test_hooks` parameter. If neither are supplied, then the default `hooks` will be used to provide a simple output format.
 - The test runner now calls the hooks in the following order, wrapping the test call itself:
-  - `before_test_set`: called prior to beginning a test set, after the set configuration is called (if registered).
-  - `before_test_case`: called before test setup (if registered).
-  - `on_start_test`: handler called after test setup, before test execution.
-  - *** execute test ***
-  - `on_end_test`: handler called directly after test execution.
-  - `after_test_case`: called after test teardown, prior to result processing
-  - `after_test_set`: called at the end of the test set, after set clean up
+  - **`before_test_set`**: called prior to beginning a test set, after the set configuration is called (if registered).
+  - **`before_test_case`**: called before test setup (if registered).
+  - **`on_start_test`**: handler called after test setup, before test execution.
+  - `*** execute test ***`
+  - **`on_end_test`**: handler called directly after test execution.
+  - **`after_test_case`**: called after test teardown, prior to result processing
+  - **`after_test_set`**: called at the end of the test set, after set clean up
 - Logging test state is fully decoupled from test runner. All logging is directed via `hooks` behaviors and `logger->log` and `logger->debug`.
