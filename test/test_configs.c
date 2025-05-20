@@ -20,6 +20,7 @@ static void set_cleanup(void)
 //	test case setup and teardown
 static void testcase_setup(void)
 {
+
 	testcase_setup_count++;
 }
 static void testcase_teardown(void)
@@ -47,7 +48,7 @@ void test_testcase_setup_teardown(void)
 __attribute__((constructor)) void init_configs_tests(void)
 {
 	testset("configs_set", set_config, set_cleanup);
-	writef("Test Source: %s", __FILE__);
+	writelnf("Test Source: %s", __FILE__);
 
 	setup_testcase(testcase_setup);
 	teardown_testcase(testcase_teardown);
