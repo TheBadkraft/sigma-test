@@ -16,7 +16,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define SIGTEST_VERSION "0.3.0"
+#define SIGTEST_VERSION "0.03.01"
 
 // Global test set "registry"
 TestSet test_sets = NULL;

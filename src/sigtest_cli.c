@@ -21,7 +21,7 @@
 #include "templates/main_template.ct"
 
 // CLI specific declarations
-#define SIGTEST_CLI_VERSION "0.1.0"
+#define SIGTEST_CLI_VERSION "0.01.01"
 
 void cleanup_test_runner(void);
 void fwritef(FILE *, const char *, ...);
