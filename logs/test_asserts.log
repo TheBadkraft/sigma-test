@@ -1,18 +1,18 @@
 Test Source: test/test_asserts.c
-[1] asserts_set              :  13 :         2025-05-20  12:07:44
+[1] asserts_set              :  13 :         2025-05-21  08:06:16
 =================================================================
-Running: Assert Is Null                          1.472 us  [PASS]
-Running: Assert Is Not Null                      1.569 us  [PASS]
-Running: Assert Int Not Equal                    0.942 us  [PASS]
-Running: Assert Float Not Equal                  0.711 us  [PASS]
-Running: Assert Strings Not Comparable           2.027 us  [PASS]
-Running: Assert Float Within                     0.607 us  [PASS]
-Running: Assert Float Not Within                 4.082 us  [PASS]
-Running: Assert String Equal                     1.647 us  [PASS]
-Running: Assert String Not Equal                 7.190 us  [PASS]
-Running: Assert String Case Insensitive          0.976 us  [PASS]
-Running: Assert String Case Sensitive            3.739 us  [PASS]
-Running: Assert Fail Test Case                   1.380 us  [PASS]
-Running: Assert Skip Test Case                   1.078 us  [SKIP]
+Running: Assert Is Null                          1.744 us  [PASS]
+Running: Assert Is Not Null                      0.797 us  [PASS]
+Running: Assert Int Not Equal                    0.536 us  [PASS]
+Running: Assert Float Not Equal                  0.234 us  [PASS]
+Running: Assert Strings Not Comparable           2.082 us  [PASS]
+Running: Assert Float Within                     0.319 us  [PASS]
+Running: Assert Float Not Within                 3.006 us  [PASS]
+Running: Assert String Equal                     1.741 us  [PASS]
+Running: Assert String Not Equal                 7.119 us  [PASS]
+Running: Assert String Case Insensitive          0.332 us  [PASS]
+Running: Assert String Case Sensitive            2.636 us  [PASS]
+Running: Assert Fail Test Case                   0.812 us  [PASS]
+Running: Assert Skip Test Case                   0.429 us  [SKIP]
 =================================================================
 [1]     TESTS= 13        PASS= 12        FAIL=  0        SKIP=  1
