@@ -15,13 +15,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <assert.h>
-#include <time.h>
-// -----
-#include <unistd.h>
-#include <sys/syscall.h>
 
 #define SIGTEST_VERSION "0.3.0"
-// #define CLOCK_MONOTONIC 1
 
 // Global test set "registry"
 TestSet test_sets = NULL;
@@ -53,7 +48,6 @@ const char *LOG_LEVELS[] = {
 //	system clock structures
 #define SYS_CLOCK SYS_clock_gettime
 #define CLOCK_MONOTONIC 1
-typedef struct timespec ts_time;
 int sys_gettime(ts_time *ts)
 {
 	return clock_gettime(CLOCK_MONOTONIC, ts);
@@ -83,42 +77,45 @@ void fwritef(FILE *, const char *, ...);
 SigtestHooks init_hooks(const char *name)
 {
 	// Check if the name is NULL or empty
-	if (name == NULL || strlen(name) == 0)
+	if (!name || !*name)
 	{
 		fwritelnf(stderr, "Error: Hook name cannot be NULL or empty");
 		return NULL; // Invalid name
 	}
-
+	//	look first for named hooks in registry
+	for (HookRegistry *entry = hook_registry; entry; entry = entry->next)
+	{
+		if (entry->hooks->name && strcmp(entry->hooks->name, name) == 0)
+		{
+			return entry->hooks;
+		}
+	}
+	// or create a new one
 	SigtestHooks hooks = malloc(sizeof(struct sigtest_hooks_s));
 	if (!hooks)
 	{
 		fwritelnf(stderr, "Error: Failed to allocate memory for hooks");
 		return NULL; // Memory allocation failed
 	}
-	hooks->name = NULL;
-	hooks->before_set = NULL;
-	hooks->after_set = NULL;
-	hooks->before_test = NULL;
-	hooks->after_test = NULL;
-	hooks->on_start_test = NULL;
-	hooks->on_end_test = NULL;
-	hooks->on_error = NULL;
-	hooks->on_test_result = NULL;
-	hooks->context = NULL;
-
-	for (HookRegistry *entry = hook_registry; entry; entry = entry->next)
-	{
-		if (strcmp(entry->hooks->name, name) == 0)
-		{
-			*hooks = *entry->hooks;
-		}
-	}
+	hooks->name = strdup(name);
 	if (!hooks->name)
 	{
-		fwritelnf(stderr, "Error: No hooks found for '%s", name);
+		fwritelnf(stderr, "Error: Failed to duplicate hook name");
 		free(hooks);
-		return NULL;
+		return NULL; // Memory allocation failed
 	}
+	*hooks = (struct sigtest_hooks_s){
+		 .name = strdup(name),
+		 .before_set = NULL,
+		 .after_set = NULL,
+		 .before_test = NULL,
+		 .after_test = NULL,
+		 .on_start_test = NULL,
+		 .on_end_test = NULL,
+		 .on_error = NULL,
+		 .on_test_result = NULL,
+		 .context = NULL,
+	};
 
 	return hooks;
 }
@@ -635,6 +632,9 @@ void testset(string name, ConfigFunc config, CleanupFunc cleanup)
 	set->cases = NULL;
 	set->tail = NULL;
 	set->count = 0;
+	set->passed = 0;
+	set->failed = 0;
+	set->skipped = 0;
 	set->current = NULL;
 	set->next = test_sets;
 	set->logger = malloc(sizeof(struct sigtest_logger_s));
@@ -828,7 +828,7 @@ void teardown_testcase(CaseOp teardown)
 /*
 	Register test hooks
 */
-void register_hook(SigtestHooks hooks)
+void register_hooks(SigtestHooks hooks)
 {
 	HookRegistry *entry = malloc(sizeof(HookRegistry));
 	if (!entry)
@@ -840,6 +840,11 @@ void register_hook(SigtestHooks hooks)
 	entry->hooks = hooks;
 	entry->next = hook_registry;
 	hook_registry = entry;
+
+	if (current_set && !current_set->hooks)
+	{
+		current_set->hooks = hooks;
+	}
 }
 
 //	default test hooks
@@ -990,13 +995,17 @@ static const sigtest_hooks_s default_hooks = {
 //	 initialize on start up
 __attribute__((constructor)) static void init_default_hooks(void)
 {
-	register_hook((SigtestHooks)&default_hooks);
+	HookRegistry *entry = malloc(sizeof(HookRegistry));
 	// if we don't have a valid hooks registry, we exit
-	if (!hook_registry)
+	if (!entry)
 	{
-		fwritelnf(stderr, "Error: Failed to create hooks registry");
+		fwritelnf(stderr, "Error: Failed to allocate hooks registry entry");
 		exit(EXIT_FAILURE);
 	}
+
+	entry->hooks = (SigtestHooks)&default_hooks;
+	entry->next = hook_registry;
+	hook_registry = entry;
 }
 
 #ifdef SIGTEST_TEST
@@ -1015,7 +1024,7 @@ int main(void)
 // the actual test runner
 int run_tests(TestSet sets, SigtestHooks test_hooks)
 {
-	int total_tests = 0, passed_tests = 0, failed_tests = 0, skipped_tests = 0;
+	int total_tests = 0;
 	int set_sequence = 1;
 	char timestamp[32];
 
@@ -1176,7 +1185,7 @@ int run_tests(TestSet sets, SigtestHooks test_hooks)
 					set->logger->log("[PASS]\n");
 				}
 				tc_passed++;
-				passed_tests++;
+				set->passed++;
 			}
 			else if (tc->test_result.state == SKIP)
 			{
@@ -1189,7 +1198,7 @@ int run_tests(TestSet sets, SigtestHooks test_hooks)
 					set->logger->log("[SKIP]\n");
 				}
 				tc_skipped++;
-				skipped_tests++;
+				set->skipped++;
 			}
 			else
 			{
@@ -1202,7 +1211,7 @@ int run_tests(TestSet sets, SigtestHooks test_hooks)
 					set->logger->log("[FAIL]\n     %s", tc->test_result.message ? tc->test_result.message : "Unknown");
 				}
 				tc_failed++;
-				failed_tests++;
+				set->failed++;
 			}
 			tc_total++;
 			total_tests++;
@@ -1229,10 +1238,10 @@ int run_tests(TestSet sets, SigtestHooks test_hooks)
 	// Final output to stdout
 	fwritelnf(stdout, "=================================================================");
 	fwritelnf(stdout, "Tests run: %d, Passed: %d, Failed: %d, Skipped: %d",
-				 total_tests, passed_tests, failed_tests, skipped_tests);
+				 total_tests, current_set->passed, current_set->failed, current_set->skipped);
 	fwritelnf(stdout, "Total test sets registered: %d", total_sets);
 
-	return failed_tests > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+	return current_set->failed > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
 /*

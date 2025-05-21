@@ -13,10 +13,9 @@
 // CLI specific declarations
 void cleanup_test_runner(void);
 void fwritef(FILE *, const char *, ...);
-OutputFormat parse_output_format(const char *);
 
 // Initialize CLI hooks
-void init_cli_hooks(SigtestHooks *, const char *, FILE *);
+void init_cli_hooks(SigtestHooks *, FILE *);
 
 // CLI state structure
 typedef struct
@@ -25,7 +24,7 @@ typedef struct
    {
       START,
       TEST_SRC,
-      FORMAT,
+      // FORMAT,
       DONE,
       ERROR
    } state;
@@ -36,7 +35,6 @@ typedef struct
       VERSION,
    } mode;
    const char *test_src;
-   const char *output_format;
    int no_clean;
    int verbose;
 } CliState;

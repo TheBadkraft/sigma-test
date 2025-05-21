@@ -31,26 +31,12 @@ int gen_filenames(char *, const char *);
 int touch_source(const char *, FILE *);
 int ensure_tmp_dir(FILE *);
 int create_temp_files(char *, char *, FILE *);
-int gen_main(char *, const char *, FILE *, int);
 int compile_source(int, const char *, const char *, FILE *, int);
 int link_executable(int, const char *, const char *, const char *, FILE *, int);
 int run_and_cleanup(const char *, const char *, FILE *, int);
-static char *replace_tag(const char *, const char *, const char *, int);
-
-// Structure to track source segment and tag replacement location
-typedef struct source_segment
-{
-   const char *src;             // Pointer to the source string
-   size_t len;                  // Length of segment
-   struct source_segment *next; // Pointer to the next segment
-} SourceSegment;
 
 // SigtetsHooks declarations
-static void format_junit_output(const TestSet, const TestCase, const object);
-OutputFormat parse_output_format(const char *);
-static void junit_before_set(const TestSet, object);
-static void junit_after_set(const TestSet, object);
-void init_cli_hooks(SigtestHooks *, const char *, FILE *);
+void init_cli_hooks(SigtestHooks *, FILE *);
 
 int main(int argc, char **argv)
 {
@@ -111,9 +97,9 @@ int main(int argc, char **argv)
    // Initialize hooks for DEFAULT mode
    if (cli.mode == DEFAULT)
    {
-      init_cli_hooks(&hooks, cli.output_format, stderr);
+      init_cli_hooks(&hooks, stderr);
       // Generate main template
-      if (gen_filenames(main_template, ".c") != 0 || gen_filenames(main_obj_template, ".o") != 0 || gen_main(main_template, cli.output_format, stderr, cli.verbose) != 0)
+      if (gen_filenames(main_template, ".c") != 0 || gen_filenames(main_obj_template, ".o") != 0)
       {
          remove(main_template);
          remove(main_obj_template);
@@ -125,13 +111,6 @@ int main(int argc, char **argv)
       {
          fwritelnf(stdout, "Generated main template: %s", main_template);
       }
-   }
-   else if (cli.output_format)
-   {
-      fwritelnf(stderr, "Error: Output format is only supported in DEFAULT mode");
-      if (hooks)
-         free(hooks);
-      return 1;
    }
 
    // Compile test source
@@ -197,7 +176,7 @@ void parse_args(CliState *cli, int argc, char **argv, FILE *err_stream)
    cli->state = START;
    cli->mode = DEFAULT;
    cli->test_src = NULL;
-   cli->output_format = NULL;
+   // cli->output_format = NULL;
    cli->no_clean = 0; // Default to clean up after execution
 
    // Parse command line arguments
@@ -216,7 +195,8 @@ void parse_args(CliState *cli, int argc, char **argv, FILE *err_stream)
          }
          else if (strcmp(argv[i], "-f") == 0)
          {
-            cli->state = FORMAT;
+            fwritelnf(stdout, "Error: -f option is disabled.");
+            // cli->state = FORMAT;
          }
          else if (strcmp(argv[i], "-t") == 0)
          {
@@ -263,30 +243,30 @@ void parse_args(CliState *cli, int argc, char **argv, FILE *err_stream)
 
          break;
       }
-      case FORMAT:
-      {
-         if (cli->output_format == NULL)
-         {
-            OutputFormat format = parse_output_format(argv[i]);
-            if (format == FORMAT_DEFAULT && strcmp(argv[i], "default") != 0)
-            {
-               fwritelnf(err_stream, "Error: Invalid output format '%s'", argv[i]);
-               cli->state = ERROR;
-            }
-            else
-            {
-               cli->output_format = argv[i];
-               cli->state = START;
-            }
-         }
-         else
-         {
-            fwritelnf(err_stream, "Error: Multiple output formats provided");
-            cli->state = ERROR;
-         }
+      // case FORMAT:
+      // {
+      //    if (cli->output_format == NULL)
+      //    {
+      //       OutputFormat format = parse_output_format(argv[i]);
+      //       if (format == FORMAT_DEFAULT && strcmp(argv[i], "default") != 0)
+      //       {
+      //          fwritelnf(err_stream, "Error: Invalid output format '%s'", argv[i]);
+      //          cli->state = ERROR;
+      //       }
+      //       else
+      //       {
+      //          cli->output_format = argv[i];
+      //          cli->state = START;
+      //       }
+      //    }
+      //    else
+      //    {
+      //       fwritelnf(err_stream, "Error: Multiple output formats provided");
+      //       cli->state = ERROR;
+      //    }
 
-         break;
-      }
+      //    break;
+      // }
       case DONE:
          fwritelnf(err_stream, "Error: Unexpected argument or flag: '%s'", argv[i]);
          cli->state = ERROR;
@@ -423,70 +403,6 @@ int create_temp_files(char *obj_template, char *exe_template, FILE *err_stream)
 
    return 0;
 }
-int gen_main(char *main_template, const char *output_format, FILE *err_stream, int verbose)
-{
-   // Generate main function template
-   FILE *main_file = fopen(main_template, "w");
-   if (!main_file)
-   {
-      fwritelnf(err_stream, "Error: Failed to generate `main.c` at %s", main_template);
-      return 1;
-   }
-
-   // allocate from our embedded main template
-   char *template = malloc(main_data_size + 1);
-   if (!template)
-   {
-      fclose(main_file);
-      fwritelnf(err_stream, "Error: Failed to allocate memory for main template");
-      return 1;
-   }
-   memcpy(template, main_data, main_data_size);
-   template[main_data_size] = '\0'; // Null-terminate the string
-
-   // process parameters
-   const char *format_str = (output_format && strcmp(output_format, "junit") == 0) ? "FORMAT_JUNIT" : "FORMAT_DEFAULT";
-   char format_id[32];
-   snprintf(format_id, sizeof(format_id), "%d", FORMAT_JUNIT);
-   char fail_state[32];
-   snprintf(fail_state, sizeof(fail_state), "%d", FAIL);
-   char skip_state[32];
-   snprintf(skip_state, sizeof(skip_state), "%d", SKIP);
-
-   // replace placeholders in the template
-   char *result = replace_tag(template, "%FORMAT%", format_str, verbose);
-   char *result2 = replace_tag(result, "%JUNIT_FORMAT%", format_id, verbose);
-   char *result3 = replace_tag(result2, "%FAIL_STATE%", fail_state, verbose);
-   char *result4 = replace_tag(result3, "%SKIP_STATE%", skip_state, verbose);
-   if (!result4)
-   {
-      if (result3)
-         free(result3);
-      if (result2)
-         free(result2);
-      if (result)
-         free(result);
-
-      free(template);
-      fwritelnf(err_stream, "Error: Failed to process main template");
-      fclose(main_file);
-
-      return 1;
-   }
-
-   // Write the processed template to the file
-   fwritef(main_file, "%s", result4);
-
-   // Clean up
-   free(template);
-   free(result);
-   free(result2);
-   free(result3);
-   free(result4);
-   fclose(main_file);
-
-   return 0;
-}
 int compile_source(int mode, const char *src, const char *obj, FILE *err_stream, int verbose)
 {
    char compile_cmd[512];
@@ -562,226 +478,13 @@ int run_and_cleanup(const char *exe_template, const char *obj_template, FILE *er
    // Assume normal exit; return status as exit code (0 for success, 1 for failure)
    return status;
 }
-static char *replace_tag(const char *buffer, const char *tag, const char *value, int verbose)
-{
-   if (!buffer || !tag || !value)
-   {
-      return NULL;
-   }
-
-   size_t tag_len = strlen(tag);
-   size_t value_len = strlen(value);
-   size_t src_len = strlen(buffer);
-   size_t count = 0;
-
-   // set first segment to the start of the buffer
-   SourceSegment *head = malloc(sizeof(SourceSegment));
-   if (!head)
-   {
-      return NULL;
-   }
-   head->src = buffer;
-   head->len = 0;
-   head->next = NULL;
-   SourceSegment *current = head;
-
-   // build segments in single pass
-   const char *pos = buffer;
-   while (pos < buffer + src_len)
-   {
-      const char *found = strstr(pos, tag);
-      if (!found)
-      {
-         // No more tags found, add remaining buffer
-         current->len = (buffer + src_len) - pos;
-         break;
-      }
-
-      // set curent segment length
-      current->len = found - pos;
-      count++;
-      if (verbose)
-      {
-         // found
-         fwritelnf(stdout, "Tag [@ %ld] '%s' -> '%s'\n", (long)(pos - buffer), tag, value);
-      }
-
-      // add replacement segment
-      SourceSegment *segment = malloc(sizeof(SourceSegment));
-      if (!segment)
-      {
-         SourceSegment *tmp = head;
-         while (tmp)
-         {
-            SourceSegment *next = tmp->next;
-            free(tmp);
-            tmp = next;
-         }
-         return NULL;
-      }
-      segment->src = value;
-      segment->len = value_len;
-      segment->next = NULL;
-      // link the new segment to the current segment
-      current->next = segment;
-      current = segment;
-
-      // is there a next tag?
-      pos = found + tag_len;
-      if (pos < buffer + src_len)
-      {
-         // add segment for the text between the tags
-         current->next = malloc(sizeof(SourceSegment));
-         if (!current->next)
-         {
-            SourceSegment *tmp = head;
-            while (tmp)
-            {
-               SourceSegment *next = tmp->next;
-               free(tmp);
-               tmp = next;
-            }
-            return NULL;
-         }
-         // update the current segment
-         current->next->src = pos;
-         current->next->len = 0;
-         current->next->next = NULL;
-         current = current->next;
-      }
-   }
-
-   // Calculate new length
-   size_t new_len = 0;
-   for (SourceSegment *seg = head; seg; seg = seg->next)
-   {
-      new_len += seg->len;
-   }
-   new_len += 1; // for null terminator
-
-   // allocate the new string
-   char *result = malloc(new_len);
-   if (!result)
-   {
-      SourceSegment *tmp = head;
-      while (tmp)
-      {
-         SourceSegment *next = tmp->next;
-         free(tmp);
-         tmp = next;
-      }
-      return NULL;
-   }
-
-   // assemble the string
-   char *ptr = result;
-   for (SourceSegment *seg = head; seg; seg = seg->next)
-   {
-      memcpy(ptr, seg->src, seg->len);
-      ptr += seg->len;
-   }
-
-   // Free segments
-   SourceSegment *tmp = head;
-   while (tmp)
-   {
-      SourceSegment *next = tmp->next;
-      free(tmp);
-      tmp = next;
-   }
-
-   if (verbose)
-   {
-      fwritelnf(stdout, "Generated string length: %zu\n", new_len - 1);
-   }
-
-   return result;
-}
-
-// hooks & output format functions
-// parses the output format from the command line
-OutputFormat parse_output_format(const char *format)
-{
-   if (!format || strcmp(format, "default") == 0)
-   {
-      return FORMAT_DEFAULT;
-   }
-   else if (strcmp(format, "junit") == 0)
-   {
-      return FORMAT_JUNIT;
-   }
-
-   fwritelnf(stderr, "Warning: Invalid output format '%s', defaulting to 'default'", format);
-   return FORMAT_DEFAULT;
-}
 // Initialize CLI hooks
-void init_cli_hooks(SigtestHooks *hooks, const char *output_format, FILE *err_stream)
+void init_cli_hooks(SigtestHooks *hooks, FILE *err_stream)
 {
-   OutputFormat format = parse_output_format(output_format);
    *hooks = init_hooks("junit");
    if (!*hooks)
    {
       fwritelnf(err_stream, "Error: Failed to initialize hooks");
       exit(EXIT_FAILURE);
-   }
-
-   if (format == FORMAT_JUNIT)
-   {
-      (*hooks)->before_set = junit_before_set;
-      (*hooks)->after_set = junit_after_set;
-      // (*hooks)->format_output = format_junit_output;
-   }
-}
-// JUnit XML output formattter - these are moving to a separate file for better accessibility
-// NOTE: using `fwrite*f` here is not ideal; we should use the test set's logger
-static void format_junit_output(const TestSet set, const TestCase tc, const object context)
-{
-   static int first_test = 1;
-   static char timestamp[32];
-
-   if (first_test)
-   {
-      get_timestamp(timestamp, "%Y-%m-%dT%H:%M:%S");
-      // fwritef(stream, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-      set->logger->log("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-      // fwritef(stream, "<testsuites>");
-      set->logger->log("<testsuites>");
-
-      first_test = 0;
-   }
-
-   // suite header is printed in the before_set hook
-   // fwritef(stream, "<testcase name=\"%s\">", tc->name);
-   set->logger->log("<testcase name=\"%s\">", tc->name);
-
-   if (tc->test_result.state == FAIL)
-   {
-      // fwritef(stream, "<failure message=\"%s\"/>\n", tc->test_result.message ? tc->test_result.message : "Unknown failure");
-      set->logger->log("<failure message=\"%s\"/>\n", tc->test_result.message ? tc->test_result.message : "Unknown failure");
-   }
-   else if (tc->test_result.state == SKIP)
-   {
-      // fwritef(stream, "<skipped/>");
-      set->logger->log("<skipped/>");
-   }
-   // fwritef(stream, "</testcase>\n");
-   set->logger->log("</testcase>\n");
-}
-// Before test set hook for JUnit XML
-static void junit_before_set(const TestSet set, object context)
-{
-   if (set->log_stream)
-   {
-      // fwritef(set->log_stream, "<testsuite name\"%s\" tests=\"%d\">", set->name, set->count);
-      set->logger->log("<testsuite name=\"%s\" tests=\"%d\">", set->name, set->count);
-   }
-}
-// After test set hook for JUnit XML
-static void junit_after_set(const TestSet set, object context)
-{
-   if (set->log_stream)
-   {
-      // fwritef(set->log_stream, "</testsuite>");
-      set->logger->log("</testsuite>");
    }
 }

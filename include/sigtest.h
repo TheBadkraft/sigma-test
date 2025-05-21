@@ -9,6 +9,10 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <time.h>
+// -----
+#include <unistd.h>
+#include <sys/syscall.h>
 
 #ifndef TRUE
 #define TRUE 1
@@ -24,18 +28,19 @@ struct sigtest_logger_s;
 
 typedef void *object;
 typedef char *string;
+typedef struct timespec ts_time;
 
 typedef struct sigtest_case_s *TestCase;
 typedef struct sigtest_set_s *TestSet;
 typedef struct sigtest_hooks_s *SigtestHooks;
 typedef struct sigtest_logger_s *Logger;
 
-typedef void (*TestFunc)(void);														 // Test function pointer
-typedef void (*CaseOp)(void);															 // Test case operation function pointer - setup/teardown
-typedef void (*ConfigFunc)(FILE **);												 // Test set config function pointer
-typedef void (*CleanupFunc)(void);													 // Test set cleanup function pointer
-typedef void (*OutputFunc)(const TestSet, const TestCase, const object); // Output formatting function
-typedef void (*SetOp)(const TestSet, object);									 // Test set operation function pointer
+typedef void (*TestFunc)(void);		 // Test function pointer
+typedef void (*CaseOp)(void);			 // Test case operation function pointer - setup/teardown
+typedef void (*ConfigFunc)(FILE **); // Test set config function pointer
+typedef void (*CleanupFunc)(void);	 // Test set cleanup function pointer
+// typedef void (*OutputFunc)(const TestSet, const TestCase, const object); // Output formatting function
+typedef void (*SetOp)(const TestSet, object); // Test set operation function pointer
 
 // Output log levels
 typedef enum
@@ -46,14 +51,6 @@ typedef enum
 	LOG_ERROR,	 // Error (non-fatal) level logging
 	LOG_FATAL,	 // Fatal error level logging
 } LogLevel;
-
-//	Output format types
-typedef enum
-{
-	FORMAT_DEFAULT,
-	FORMAT_JUNIT,
-	FORMAT_SIMPLE
-} OutputFormat;
 
 extern TestSet test_sets; // Global test set registry
 
@@ -203,6 +200,9 @@ typedef struct sigtest_set_s
 	TestCase cases;		/* Pointer to the test cases */
 	TestCase tail;			/* Pointer to the last test case */
 	int count;				/* Number of test cases */
+	int passed;				/* Number of passed test cases */
+	int failed;				/* Number of failed test cases */
+	int skipped;			/* Number of skipped test cases */
 	TestCase current;		/* Current test case */
 	TestSet next;			/* Pointer to the next test set */
 	SigtestHooks hooks;	/* Hooks for the test set */
@@ -252,7 +252,7 @@ void testset(string name, void (*config)(FILE **), void (*cleanup)(void));
  * @brief Register test hooks
  * @param hooks :the test set hooks
  */
-void register_hook(SigtestHooks);
+void register_hooks(SigtestHooks);
 
 /**
  * @brief Writes a formatted message to the current test set's log stream

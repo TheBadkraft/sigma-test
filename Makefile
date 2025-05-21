@@ -18,8 +18,10 @@ TEMPLATE_DIR = templates
 RESOURCE_DIR = resources
 
 SRCS = $(wildcard $(SRC_DIR)/*.c)
+HOOKS_SRCS = $(wildcard $(SRC_DIR)/hooks/*.c)
 CLI_SRC = $(SRC_DIR)/sigtest_cli.c
-OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(filter-out $(CLI_SRC), $(SRCS)))
+OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(filter-out $(CLI_SRC) $(HOOKS_SRCS), $(SRCS)))
+HOOKS_OBJS = $(patsubst $(SRC_DIR)/hooks/%.c, $(BUILD_DIR)/hooks/%.o, $(HOOKS_SRCS))
 CLI_OBJ = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(CLI_SRC))
 TST_SRCS = $(wildcard $(TEST_DIR)/*.c)
 TST_OBJS = $(patsubst $(TEST_DIR)/%.c, $(TST_BUILD_DIR)/%.o, $(TST_SRCS))
@@ -32,11 +34,8 @@ LIB_TEST_HEADER = $(LIB_TEST_DIR)/math_utils.h
 LIB_TARGET = $(LIB_DIR)/libsigtest.so
 BIN_TARGET = $(BIN_DIR)/sigtest
 TST_TARGET = $(TST_BUILD_DIR)/run_tests
-# objectify & templates
+# objectify
 OBJECTIFY_TARGET = $(BIN_DIR)/objectify
-TEMPLATE_SRC = $(TEMPLATE_DIR)/main.txt
-TEMPLATE_OUT = $(SRC_DIR)/$(TEMPLATE_DIR)/main_template.ct
-TEMPLATE_OBJ = $(RESOURCE_DIR)/main_template.ro
 
 INSTALL_LIB_DIR = /usr/lib
 INSTALL_INCLUDE_DIR = /usr/include
@@ -52,6 +51,10 @@ $(LIB_TARGET): $(OBJS)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c $(HEADER)
 	@mkdir -p $(BUILD_DIR)
+	$(CC) $(TST_CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/hooks/%.o: $(SRC_DIR)/hooks/%.c $(HEADER)
+	@mkdir -p $(BUILD_DIR)/hooks
 	$(CC) $(TST_CFLAGS) -c $< -o $@
 
 $(CLI_OBJ): $(CLI_SRC) $(HEADER)
@@ -70,14 +73,6 @@ $(OBJECTIFY_TARGET): tools/objectify.c $(HEADER)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $@ $<
 
-$(TEMPLATE_OUT): $(TEMPLATE_SRC) $(OBJECTIFY_TARGET)
-	@mkdir -p $(SRC_DIR)/$(TEMPLATE_DIR)
-	$(BIN_DIR)/objectify $(TEMPLATE_SRC)
-
-$(TEMPLATE_OBJ): $(TEMPLATE_OUT)
-	@mkdir -p $(RESOURCE_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
 $(BIN_TARGET): $(LIB_TARGET) $(CLI_OBJ)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CLI_OBJ) -o $(BIN_TARGET) $(CLI_LDFLAGS)
@@ -90,6 +85,10 @@ $(TST_BUILD_DIR)/test_%: $(TST_BUILD_DIR)/test_%.o $(OBJS)
 	@mkdir -p $(TST_BUILD_DIR)
 	$(CC) $< $(OBJS) -o $@ $(TST_LDFLAGS)
 
+$(TST_BUILD_DIR)/test_hooks: $(TST_BUILD_DIR)/test_hooks.o $(OBJS) $(BUILD_DIR)/hooks/json_hooks.o
+	@mkdir -p $(TST_BUILD_DIR)
+	$(CC) $(TST_BUILD_DIR)/test_hooks.o $(OBJS) $(BUILD_DIR)/hooks/json_hooks.o -o $@ $(TST_LDFLAGS)
+
 $(TST_BUILD_DIR)/test_lib: $(TST_BUILD_DIR)/test_lib.o $(TST_BUILD_DIR)/math_utils.o $(LIB_TARGET)
 	@mkdir -p $(TST_BUILD_DIR)
 	$(CC) $(TST_BUILD_DIR)/test_lib.o $(TST_BUILD_DIR)/math_utils.o -o $@ -L$(LIB_DIR) -lsigtest $(TST_LDFLAGS)
@@ -101,6 +100,9 @@ cli: $(BIN_TARGET)
 objectify: $(OBJECTIFY_TARGET)
 
 test_lib: $(TST_BUILD_DIR)/test_lib
+	@$<
+
+test_hooks: $(TST_BUILD_DIR)/test_hooks
 	@$<
 
 install: $(LIB_TARGET) $(HEADER) $(BIN_TARGET)
@@ -127,4 +129,4 @@ clean:
 clean-objectify:
 	rm -rf $(SRC_DIR)/templates/*.ct $(RESOURCE_DIR)/*.ro
 
-.PHONY: all clean clean-objectify lib cli install suite test_% build_% build_test_% test_lib objectify
+.PHONY: all clean clean-objectify lib cli install suite test_% build_% build_test_% test_lib test_hooks objectify
