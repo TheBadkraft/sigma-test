@@ -10,12 +10,15 @@
 #include "sigtest.h"
 #include <stdio.h>
 
-// CLI specific declarations
-void cleanup_test_runner(void);
-void fwritef(FILE *, const char *, ...);
+#define MAX_TEMPLATE_LEN 64
 
-// Initialize CLI hooks
-void init_cli_hooks(SigtestHooks *, FILE *);
+// Output log levels
+typedef enum
+{
+   LOG_NONE,    // No logging
+   LOG_MINIMAL, // Minimal logging
+   LOG_VERBOSE, // Verbose logging
+} LogLevel;
 
 // CLI state structure
 typedef struct
@@ -24,9 +27,9 @@ typedef struct
    {
       START,
       TEST_SRC,
-      // FORMAT,
       DONE,
-      ERROR
+      ERROR,
+      IGNORE,
    } state;
    enum
    {
@@ -36,9 +39,18 @@ typedef struct
    } mode;
    const char *test_src;
    int no_clean;
-   int verbose;
+   LogLevel log_level;
+   DebugLevel debug_level;
 } CliState;
 
-#define MAX_TEMPLATE_LEN 64
+/**
+ * @brief Debug logging function
+ * @param stream :the output stream to write to
+ * @param log_level :the log level
+ * @param debug_level :the debug level
+ * @param fmt :the format message to display
+ * @param ... :the variable arguments for the format message
+ */
+void fdebugf(FILE *, LogLevel, DebugLevel, const char *, ...);
 
 #endif // SIGTEST_CLI_H

@@ -14,35 +14,46 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <time.h>
 #include <unistd.h> // For getpid; use <process.h> on Windows
-#include <errno.h>
-// include embedded resource
-#include "templates/main_template.ct"
+#include <sys/stat.h>
 
 // CLI specific declarations
-#define SIGTEST_CLI_VERSION "0.01.01"
+#define SIGTEST_CLI_VERSION "0.02.00"
+// For dynamic log level annotation
+static const char *DBG_LEVELS[] = {
+    "DEBUG",
+    "INFO",
+    "WARNING",
+    "ERROR",
+    "FATAL",
+    NULL,
+};
+// CLI State
+static CliState cli = {
+    .state = START,
+    .mode = DEFAULT,
+    .test_src = NULL,
+    .no_clean = 0,
+    .log_level = LOG_MINIMAL,
+    .debug_level = DBG_DEBUG,
+};
 
-void cleanup_test_runner(void);
-void fwritef(FILE *, const char *, ...);
+#define BUILD_DIR "build/tmp"
 
-void parse_args(CliState *, int, char **, FILE *);
-int gen_filenames(char *, const char *);
-int touch_source(const char *, FILE *);
-int ensure_tmp_dir(FILE *);
-int create_temp_files(char *, char *, FILE *);
-int compile_source(int, const char *, const char *, FILE *, int);
-int link_executable(int, const char *, const char *, const char *, FILE *, int);
-int run_and_cleanup(const char *, const char *, FILE *, int);
-
-// SigtetsHooks declarations
-void init_cli_hooks(SigtestHooks *, FILE *);
+void parse_args(int, char **, FILE *);
+int touch_file(const char *, FILE *);
+int verify_directory(const char *, FILE *);
+void detect_dependencies(const char *, const char **, int *);
+void gen_filenames(const char *, char *, char *, size_t);
+int compile_suite(const char *[], int, char *[], FILE *);
+int link_executable(const char *[], int, const char *, FILE *);
+int run_and_cleanup(const char *, const char *);
 
 int main(int argc, char **argv)
 {
-   SigtestHooks hooks = NULL;
-   CliState cli;
-   parse_args(&cli, argc, argv, stderr);
+   parse_args(argc, argv, stderr);
 
    if (cli.state == ERROR)
    {
@@ -52,439 +63,373 @@ int main(int argc, char **argv)
 
    if (cli.state == DONE && cli.mode == VERSION)
    {
-      if (hooks)
-         free(hooks);
+      fwritelnf(stdout, "SigmaTest:      v.%s", sigtest_version());
+      fwritelnf(stdout, "SigmaTest(CLI): v.%s", SIGTEST_CLI_VERSION);
+      if (cli.log_level == LOG_VERBOSE)
+      {
+         fwritelnf(stdout, "*===============================================================*");
+         fwritelnf(stdout, "* Copyright 2025:                  David Boarman (The BadKraft) *");
+         fwritelnf(stdout, "* License:                                                  MIT *");
+         fwritelnf(stdout, "* GitHub:             https://github.com/TheBadkraft/sigma-test *");
+         fwritelnf(stdout, "* Email:                                   theboarman@proton.me *");
+         fwritelnf(stdout, "*===============================================================*");
+      }
+
       return 0;
    }
-   string test_src = (string)cli.test_src;
-   char main_template[MAX_TEMPLATE_LEN];
-   char main_obj_template[MAX_TEMPLATE_LEN];
-   char obj_template[MAX_TEMPLATE_LEN];
-   char exe_template[MAX_TEMPLATE_LEN];
+
+   // char obj_template[MAX_TEMPLATE_LEN];
+   // char exe_template[MAX_TEMPLATE_LEN];
 
    // Validate test source file
-   if (touch_source(test_src, stderr) != 0)
+   if (touch_file(cli.test_src, stderr) != 0)
    {
-      if (hooks)
-         free(hooks);
       return 1;
    }
-   else if (cli.verbose) // placeholder for future --verbose/--debug option
+   else if (cli.log_level == LOG_VERBOSE)
    {
-      fwritelnf(stdout, "Verified source file: %s", test_src);
+      fdebugf(stdout, cli.log_level, DBG_INFO, "Verified: source=`%s`\n", cli.test_src);
    }
-
-   // Ensure build/tmp/ directory exists
-   if (ensure_tmp_dir(stderr) != 0)
+   // Validate build directory
+   if (verify_directory(BUILD_DIR, stderr) != 0)
    {
-      if (hooks)
-         free(hooks);
       return 1;
    }
-   else if (cli.verbose) // placeholder for future --verbose/--debug option
+   else if (cli.log_level == LOG_VERBOSE)
    {
-      fwritelnf(stdout, "Verified build/tmp/ directory");
+      fdebugf(stdout, cli.log_level, DBG_INFO, "Verified: build directory=`%s`\n", BUILD_DIR);
    }
 
-   // Create temporary files
-   if (create_temp_files(obj_template, exe_template, stderr) != 0)
+   // Build ...
+   const char *sources[2];
+   char *objs[2], exe[256], obj_buffers[2][256];
+   int source_count = 0;
+   sources[0] = cli.test_src;
+   detect_dependencies(cli.test_src, sources + 1, &source_count);
+   source_count++;
+   // Generate filenames
+   for (int i = 0; i < source_count; i++)
    {
-      if (hooks)
-         free(hooks);
+      objs[i] = obj_buffers[i]; // Point to fixed-size buffers
+      gen_filenames(sources[i], objs[i], i == 0 ? exe : NULL, sizeof(obj_buffers[i]));
+   }
+   // Compile the test suite
+   if (compile_suite(sources, source_count, objs, stderr) != 0)
+   {
       return 1;
    }
+   fdebugf(stdout, cli.log_level, DBG_INFO, "Compiled: source=`%s`, object=`%s`, executable=`%s`\n", sources[0], objs[0], exe);
 
-   // Initialize hooks for DEFAULT mode
-   if (cli.mode == DEFAULT)
+   // Link the object files into an executable
+   if (link_executable((const char **)objs, source_count, exe, stderr) != 0)
    {
-      init_cli_hooks(&hooks, stderr);
-      // Generate main template
-      if (gen_filenames(main_template, ".c") != 0 || gen_filenames(main_obj_template, ".o") != 0)
-      {
-         remove(main_template);
-         remove(main_obj_template);
-         if (hooks)
-            free(hooks);
-         return 1;
-      }
-      else if (cli.verbose) // placeholder for future --verbose/--debug option
-      {
-         fwritelnf(stdout, "Generated main template: %s", main_template);
-      }
-   }
-
-   // Compile test source
-   if (compile_source(cli.mode, test_src, obj_template, stderr, cli.verbose) != 0 || (cli.mode == DEFAULT && compile_source(cli.mode, main_template, main_obj_template, stderr, cli.verbose) != 0))
-   {
-      remove(obj_template);
-      remove(exe_template);
-      if (cli.mode == DEFAULT)
-      {
-         if (!cli.no_clean)
-         {
-            remove(main_template);
-            remove(main_obj_template);
-         }
-         if (hooks)
-            free(hooks);
-      }
       return 1;
    }
-   else if (cli.verbose) // placeholder for future --verbose/--debug option
-   {
-      fwritelnf(stdout, "Compiled test source: %s", test_src);
-      if (cli.mode == DEFAULT)
-         fwritelnf(stdout, "Compiled main template: %s", main_template);
-   }
-
-   // Link executable
-   if (link_executable(cli.mode, obj_template, main_obj_template, exe_template, stderr, cli.verbose) != 0)
-   {
-      remove(obj_template);
-      remove(exe_template);
-      if (cli.mode == DEFAULT)
-      {
-         if (!cli.no_clean)
-         {
-            remove(main_template);
-            remove(main_obj_template);
-         }
-         if (hooks)
-            free(hooks);
-      }
-      return 1;
-   }
-
-   // Housekeeping
-   if (cli.mode == DEFAULT && !cli.no_clean)
-   {
-      remove(main_template);
-      remove(main_obj_template);
-   }
-
-   // Run tests and clean up
-   int result = run_and_cleanup(exe_template, obj_template, stderr, cli.verbose);
-   if (hooks)
-      free(hooks);
-
-   return result;
+   fdebugf(stdout, cli.log_level, DBG_INFO, "Linked: object=`%s`, executable=`%s`\n", objs[0], exe);
+   // Run the test suite
+   return run_and_cleanup(exe, objs[0]);
 }
 
-void parse_args(CliState *cli, int argc, char **argv, FILE *err_stream)
+// Parse command line arguments
+void parse_args(int argc, char **argv, FILE *err_stream)
 {
-   // Initialize state
-   cli->state = START;
-   cli->mode = DEFAULT;
-   cli->test_src = NULL;
-   // cli->output_format = NULL;
-   cli->no_clean = 0; // Default to clean up after execution
-
    // Parse command line arguments
    for (int i = 1; i < argc; i++)
    {
-      switch (cli->state)
+      switch (cli.state)
       {
       case START:
       {
          if (strcmp(argv[i], "--about") == 0)
          {
-            cli->mode = VERSION;
-            cli->state = DONE;
-            fwritelnf(stdout, "SigmaTest:      v.%s", sigtest_version());
-            fwritelnf(stdout, "SigmaTest(CLI): v.%s", SIGTEST_CLI_VERSION);
+            cli.mode = VERSION;
+            cli.state = DONE;
          }
          else if (strcmp(argv[i], "-f") == 0)
          {
-            fwritelnf(stdout, "Error: -f option is disabled.");
-            // cli->state = FORMAT;
+            fdebugf(stdout, LOG_VERBOSE, DBG_WARNING, "Option '%s' is disabled.\n", argv[i]);
+
+            cli.state = IGNORE;
          }
          else if (strcmp(argv[i], "-t") == 0)
          {
-            cli->state = TEST_SRC;
+            cli.state = TEST_SRC;
          }
          else if (strcmp(argv[i], "-s") == 0)
          {
-            cli->mode = SIMPLE;
+            cli.mode = SIMPLE;
          }
          else if (strcmp(argv[i], "--no-clean") == 0)
          {
-            cli->no_clean = 1;
-            cli->state = START;
+            cli.no_clean = 1;
+            cli.state = START;
          }
          else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0)
          {
-            cli->verbose = 1;
-            cli->state = START;
+            cli.log_level = LOG_VERBOSE;
+            cli.state = START;
          }
-         else
+         else if (strncmp(argv[i], "--verbose=", 10) == 0)
          {
-            cli->state = ERROR;
-            fwritelnf(err_stream, "Error: Unknown option '%s'", argv[i]);
+            // Parse debug level
+            char *level_str = argv[i] + 10;
+            // convert to int (should be 0-2)
+            int level = atoi(level_str);
+            if (level < 0 || level > 2)
+            {
+               cli.state = ERROR;
+               fdebugf(err_stream, cli.log_level, DBG_ERROR, "Invalid value: verbose level='%s'\n", level_str);
+            }
+            else
+            {
+               cli.log_level = (LogLevel)level;
+               cli.state = START;
+            }
+         }
+         else if (strncmp(argv[i], "--debug=", 8) == 0)
+         {
+            // Parse debug level
+            char *level_str = argv[i] + 8;
+            // convert to int; range 0-5
+            int level = atoi(level_str);
+            if (level < 0 || level > 4)
+            {
+               cli.state = ERROR;
+               fdebugf(err_stream, cli.log_level, DBG_ERROR, "Invalid value: debug level='%s'\n", level_str);
+            }
+            else
+            {
+               cli.debug_level = (DebugLevel)level;
+               cli.state = START;
+            }
          }
 
          break;
       }
       case TEST_SRC:
       {
-         if (cli->test_src == NULL)
+         if (cli.test_src == NULL)
          {
-            cli->test_src = argv[i];
-            cli->state = START;
-            if (cli->verbose)
-            {
-               fwritelnf(stdout, "Test source file: %s", cli->test_src);
-            }
+            cli.test_src = argv[i];
+            cli.state = START;
          }
          else
          {
-            fwritelnf(err_stream, "Error: Multiple test source files provided");
-            cli->state = ERROR;
+            fdebugf(err_stream, cli.log_level, DBG_ERROR, "Multiple test source files");
+            cli.state = ERROR;
          }
 
          break;
       }
-      // case FORMAT:
-      // {
-      //    if (cli->output_format == NULL)
-      //    {
-      //       OutputFormat format = parse_output_format(argv[i]);
-      //       if (format == FORMAT_DEFAULT && strcmp(argv[i], "default") != 0)
-      //       {
-      //          fwritelnf(err_stream, "Error: Invalid output format '%s'", argv[i]);
-      //          cli->state = ERROR;
-      //       }
-      //       else
-      //       {
-      //          cli->output_format = argv[i];
-      //          cli->state = START;
-      //       }
-      //    }
-      //    else
-      //    {
-      //       fwritelnf(err_stream, "Error: Multiple output formats provided");
-      //       cli->state = ERROR;
-      //    }
-
-      //    break;
-      // }
-      case DONE:
-         fwritelnf(err_stream, "Error: Unexpected argument or flag: '%s'", argv[i]);
-         cli->state = ERROR;
+      case IGNORE:
+      {
+         cli.state = START;
 
          break;
+      }
+      case DONE:
+      {
+         fdebugf(err_stream, LOG_VERBOSE, DBG_ERROR, "Error: Unexpected argument or flag: '%s'", argv[i]);
+         cli.state = ERROR;
+
+         break;
+      }
       case ERROR:
          // Already in error state, ignore further arguments
          break;
       }
    }
 
-   if (cli->state == TEST_SRC)
+   if (cli.state == TEST_SRC)
    {
       fwritelnf(err_stream, "Error: No test source file provided");
-      cli->state = ERROR;
+      cli.state = ERROR;
    }
-   else if (cli->state == START && cli->mode != VERSION && cli->test_src == NULL)
+   else if (cli.state == IGNORE && cli.test_src == NULL)
    {
-      fwritelnf(err_stream, "Error: No test source or options provided");
-      cli->state = ERROR;
+      fdebugf(err_stream, cli.log_level, DBG_ERROR, "No test source or options provided\n");
+      cli.state = ERROR;
+   }
+   else if (cli.state == START && cli.mode != VERSION && cli.test_src == NULL)
+   {
+      fdebugf(err_stream, LOG_VERBOSE, DBG_ERROR, "No test source or options provided\n");
+      cli.state = ERROR;
    }
 }
-int touch_source(const char *test_src, FILE *err_stream)
+// Validate the target file
+int touch_file(const char *target_file, FILE *err_stream)
 {
    // Validate file exists and is readable
-   FILE *test_file = fopen(test_src, "r");
+   FILE *test_file = fopen(target_file, "r");
    if (!test_file)
    {
-      fwritelnf(err_stream, "Error: Test file %s is not readable", test_src);
+      fdebugf(err_stream, cli.log_level, DBG_ERROR, "Target inaccessible: file='%s'\n", target_file);
       return 1;
    }
    fclose(test_file);
 
-   // Validate .c extension
-   if (!strstr(test_src, ".c"))
+   // Validate .c extension; okay for now, but what about if we have to verify headers (.h)? or .json?
+   if (!strstr(target_file, ".c"))
    {
-      fwritelnf(err_stream, "Error: Test source '%s' must be a .c file", test_src);
+      fdebugf(err_stream, cli.log_level, DBG_ERROR, "Target extension invalid (must be '.c'): file='%s'", target_file);
       return 1;
    }
 
    return 0;
 }
-int ensure_tmp_dir(FILE *err_stream)
+// Verify the directory
+int verify_directory(const char *dir, FILE *err_stream)
 {
    // Check if build/tmp/ exists by attempting to create a temporary file
-   FILE *tmp_check = fopen("build/tmp/.sigtest_check", "w");
+   char tmp_file[256];
+   snprintf(tmp_file, sizeof(tmp_file), "%s/.sigtest_check", dir);
+   FILE *tmp_check = fopen(tmp_file, "w");
    if (!tmp_check)
    {
       // Directory doesn't exist, create it
-      if (system("mkdir build") != 0 && errno != EEXIST)
-      {
-         fwritelnf(err_stream, "Error: Failed to create build directory");
-         return 1;
-      }
-      if (system("mkdir build/tmp") != 0 && errno != EEXIST)
-      {
-         fwritelnf(err_stream, "Error: Failed to create build/tmp directory");
-         return 1;
-      }
-      // Verify creation
-      tmp_check = fopen("build/tmp/.sigtest_check", "w");
-      if (!tmp_check)
-      {
-         fwritelnf(err_stream, "Error: Failed to create build/tmp directory");
-         return 1;
-      }
-   }
-   fclose(tmp_check);
-   remove("build/tmp/.sigtest_check"); // Clean up check file
-
-   return 0;
-}
-int gen_filenames(char *template, const char *suffix)
-{
-   static int counter = 0;
-   // Initialize random seed for additional uniqueness
-   static int initialized = 0;
-   if (!initialized)
-   {
-      srand((unsigned int)time(NULL));
-      initialized = 1;
-   }
-
-   // Generate unique name: build/tmp/sigtest_<timestamp>_<pid>_<counter><suffix>
-   snprintf(template, MAX_TEMPLATE_LEN, "build/tmp/sigtest_%ld_%d_%d%s",
-            (long)time(NULL), (int)getpid(), counter++, suffix);
-   if (strlen(template) >= MAX_TEMPLATE_LEN)
-   {
-      fwritelnf(stderr, "Error: Template name too long");
-      return -1; // Name too long
-   }
-
-   // Check if file exists to avoid collisions
-   FILE *file = fopen(template, "r");
-   if (file)
-   {
-      fclose(file);
-      return -1; // File exists, unlikely due to timestamp+pid+counter
-   }
-
-   // Create file to reserve name
-   file = fopen(template, "w");
-   if (!file)
-   {
-      fwritelnf(stderr, "Error: Failed to create template file %s", template);
-      return -1; // File creation failed
-   }
-   fclose(file);
-
-   return 0;
-}
-int create_temp_files(char *obj_template, char *exe_template, FILE *err_stream)
-{
-   // Generate object file name
-   if (gen_filenames(obj_template, ".o") != 0)
-   {
-      fwritelnf(err_stream, "Error: Failed to generate object file name");
-      return 1;
-   }
-
-   // Generate executable file name
-   if (gen_filenames(exe_template,
 #ifdef _WIN32
-                     ".exe"
+      if (mkdir(dir) != 0 && errno != EEXIST)
+      {
+         fdebugf(err_stream, cli.log_level, DBG_ERROR, "Failed to create directory %s", dir);
+         exit(1);
+      }
 #else
-                     ""
+      if (mkdir(dir, 0755) != 0 && errno != EEXIST)
+      {
+         fdebugf(err_stream, cli.log_level, DBG_ERROR, "Failed to create directory %s", dir);
+         exit(1);
+      }
 #endif
-                     ) != 0)
-   {
-      fwritelnf(err_stream, "Error: Failed to generate executable file name");
-      remove(obj_template); // Clean up object file
-      return 1;
-   }
-
-   return 0;
-}
-int compile_source(int mode, const char *src, const char *obj, FILE *err_stream, int verbose)
-{
-   char compile_cmd[512];
-
-   if (mode == DEFAULT && strstr(src, "build/tmp/") && strstr(src, ".c"))
-   {
-      snprintf(compile_cmd, sizeof(compile_cmd),
-               "gcc -Wall -g -Iinclude -DSIGTEST_CLI -c %s -o %s", src, obj);
+      fdebugf(stdout, cli.log_level, DBG_INFO, "Created directory: %s\n", dir);
    }
    else
    {
-      snprintf(compile_cmd, sizeof(compile_cmd),
-               "gcc -Wall -g -Iinclude -c %s -o %s", src, obj);
+      fclose(tmp_check);
+      remove(tmp_file); // Clean up check file
    }
 
-   if (verbose)
-   {
-      fwritelnf(stdout, "***: %s", compile_cmd);
-   }
-
-   if (system(compile_cmd) != 0)
-   {
-      fwritef(err_stream, "Error: Compilation failed for '%s'", src);
-      return 1;
-   }
    return 0;
 }
-int link_executable(int mode, const char *obj_template, const char *main_template, const char *exe_template, FILE *err_stream, int verbose)
+// Detect dependencies
+void detect_dependencies(const char *src, const char **deps, int *dep_count)
 {
-   char link_cmd[512];
-   if (mode == SIMPLE)
+   // hardcoded for now; in the future, we will use a configuration file
+   *dep_count = 0;
+   deps[(*dep_count)++] = "src/sigtest.c";
+}
+// Generate filenames
+void gen_filenames(const char *src, char *obj, char *exe, size_t len)
+{
+   char basename[256];
+   const char *name = strrchr(src, '/') ? strrchr(src, '/') + 1 : src;
+   snprintf(basename, sizeof(basename), "%s_%d", name, getpid());
+   snprintf(obj, len, "%s/st_%s.o", BUILD_DIR, basename);
+   if (exe)
    {
-      snprintf(link_cmd, sizeof(link_cmd),
-               "gcc %s -Lbin/lib -lsigtest -Wl,-rpath,bin/lib -o %s",
-               obj_template, exe_template);
+      snprintf(exe, len, "%s/st_%s.exe", BUILD_DIR, basename);
    }
-   else
+   if (cli.log_level != LOG_NONE)
    {
-      snprintf(link_cmd, sizeof(link_cmd),
-               "gcc %s %s -Lbin/lib -lsigtest -Wl,-rpath,bin/lib -o %s",
-               obj_template, main_template, exe_template);
+      fdebugf(stdout, cli.log_level, DBG_INFO, "Generated filenames: source='%s', object='%s', executable='%s'\n", src, obj, exe);
+   }
+}
+// Compile the test suite
+int compile_suite(const char *sources[], int count, char *objs[], FILE *err_stream)
+{
+   for (int i = 0; i < count; i++)
+   {
+      char cmd[512];
+      snprintf(cmd, sizeof(cmd), "%s -c %s -Iinclude -DSIGTEST_TEST -o %s", getenv("CC") ? getenv("CC") : "gcc", sources[i], objs[i]);
+      if (cli.log_level != LOG_NONE)
+      {
+         fdebugf(stdout, cli.log_level, DBG_INFO, "Compiling: command='%s'\n", cmd);
+      }
+      int ret = system(cmd);
+      if (ret != 0)
+      {
+         fdebugf(err_stream, cli.log_level, DBG_ERROR, "Build failed: source='%s'\n", sources[i]);
+         return 1;
+      }
    }
 
-   if (verbose)
-   {
-      fwritelnf(stdout, "***: %s", link_cmd);
-   }
-
-   if (system(link_cmd) != 0)
-   {
-      fwritelnf(err_stream, "Error: Linking failed for '%s'", obj_template);
-      return 1;
-   }
    return 0;
 }
-int run_and_cleanup(const char *exe_template, const char *obj_template, FILE *err_stream, int verbose)
+// Link the object files into an executable
+int link_executable(const char *objs[], int count, const char *exe, FILE *err_stream)
 {
-   // Build the command
-   char cmd[512];
-   snprintf(cmd, sizeof(cmd), "%s", exe_template);
-   if (verbose)
+   char cmd[512], obj_list[256] = "";
+   for (int i = 0; i < count; i++)
    {
-      fwritef(stdout, "Running command: %s", cmd);
+      strncat(obj_list, objs[i], sizeof(obj_list) - strlen(obj_list) - 1);
+      strncat(obj_list, " ", sizeof(obj_list) - strlen(obj_list) - 1);
+   }
+   snprintf(cmd, sizeof(cmd), "%s %s -o %s", getenv("CC") ? getenv("CC") : "gcc", obj_list, exe);
+   if (cli.log_level != LOG_NONE)
+   {
+      fdebugf(stdout, cli.log_level, DBG_INFO, "Linking: %s\n", cmd);
+   }
+   int ret = system(cmd);
+   if (ret != 0)
+   {
+      fdebugf(err_stream, cli.log_level, DBG_ERROR, "Linking failed\n");
+      return 1;
    }
 
-   // Run the executable
-   int status = system(cmd);
-
-   // Clean up temporary files
-   remove(obj_template);
-   remove(exe_template);
-
-   // Assume normal exit; return status as exit code (0 for success, 1 for failure)
-   return status;
+   return 0;
 }
-// Initialize CLI hooks
-void init_cli_hooks(SigtestHooks *hooks, FILE *err_stream)
+// Run the test suite and clean up
+int run_and_cleanup(const char *exe, const char *obj)
 {
-   *hooks = init_hooks("junit");
-   if (!*hooks)
+   fdebugf(stdout, cli.log_level, DBG_INFO, "Running: %s\n", exe);
+
+   int ret = system(exe);
+   if (!cli.no_clean)
    {
-      fwritelnf(err_stream, "Error: Failed to initialize hooks");
-      exit(EXIT_FAILURE);
+      remove(obj);
+      remove(exe);
+      fdebugf(stdout, cli.log_level, DBG_INFO, "Cleaned: %s, %s\n", obj, exe);
    }
+
+   return ret;
+}
+
+// Debug logging function
+void fdebugf(FILE *stream, LogLevel log_level, DebugLevel debug_level, const char *fmt, ...)
+{
+   if (log_level == LOG_NONE)
+   {
+      return; // No output for NONE
+   }
+
+   va_list args;
+   va_start(args, fmt);
+
+   if (log_level == LOG_MINIMAL)
+   {
+      // Minimal: No debug label
+      vfprintf(stream, fmt, args);
+   }
+   else if (log_level == LOG_VERBOSE && debug_level >= cli.debug_level)
+   {
+      // Verbose: Include debug label (e.g., [DEBUG], [ERROR])
+      if (log_level == LOG_MINIMAL && (debug_level > DBG_INFO))
+      { // Only INFO+ for LOG_MINIMAL
+         vfprintf(stream, fmt, args);
+      }
+      else if (debug_level >= 0 && debug_level < sizeof(DBG_LEVELS) / sizeof(DBG_LEVELS[0]) - 1)
+      {
+         char dbg_label[16];
+         snprintf(dbg_label, sizeof(dbg_label), "[%s]", DBG_LEVELS[debug_level]);
+         fprintf(stream, "%-10s", dbg_label);
+      }
+      else
+      {
+         fprintf(stream, "[UNKNOWN] ");
+      }
+      vfprintf(stream, fmt, args);
+   }
+
+   va_end(args);
+
+   fflush(stream);
 }
