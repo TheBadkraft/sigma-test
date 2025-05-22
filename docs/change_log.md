@@ -1,8 +1,19 @@
-#### **Version 0.3.0**  -- _2025-05-20_  
+#### **Version 0.03.01** LIB -- _2025-05-21_  
+Only minimal changes `sigtest` for accessibility to `DebugLevel` (renamed from `LogLevel`) and it's enum values. Also expanded the version values for clarity and continuity with `sigtest` (CLI).
 
+#### **Version 0.02.00** CLI -- _2025-05-21_  
+Cleaned up the command line and made debug logging far more robust.
+
+- Any hooks sources and directory structures have been decoupled from building a test set (`test_<set_name>.c`).
+- Logging is far more robust with expanded `--verbose=#` & `--debug=#`:
+  - `--verbose=[0-2]` - `LOG_NONE`, `LOG_MINIMAL`, `LOG_VERBOSE`
+  - `--debug=[0-4]`   - `DBG_DEBUG`, `DBG_INFO`, `DBG_WARNING`, `DBG_ERROR`, `DBG_FATAL`
+- Refactored much of the source to re-evaluate a modular process with a dependable mechanism to parse command-line arguments and not break down from missing arguments.
+-----
+
+#### **Version 0.3.0**   LIB -- _2025-05-20_  
 Decoupled logging from the `sigtest_hooks` structure. Not that logging was directly coupled, but by the appearance of the structure, *logging* appeared to be the sole purpose for altering behaviors.
 
-`sigtest` (LIB)
 - The run test process has been decoupled from logging behaviors. Instead of calling the output functions - `writelnf` or `fwritelnf` - the test runner calls the set's `logger->log` (or `->debug`) function.
 - Test runner now checks for default `hooks` and puts a priority on the `test_hooks` parameter. If neither are supplied, then the default `hooks` will be used to provide a simple output format.
 - The test runner now calls the hooks in the following order, wrapping the test call itself:
