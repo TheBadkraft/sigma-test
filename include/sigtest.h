@@ -42,15 +42,15 @@ typedef void (*CleanupFunc)(void);	 // Test set cleanup function pointer
 // typedef void (*OutputFunc)(const TestSet, const TestCase, const object); // Output formatting function
 typedef void (*SetOp)(const TestSet, object); // Test set operation function pointer
 
-// Output log levels
+// Output debug levels
 typedef enum
 {
-	LOG_DEBUG,	 // Debug level logging
-	LOG_INFO,	 // Info level logging
-	LOG_WARNING, // Warning level logging
-	LOG_ERROR,	 // Error (non-fatal) level logging
-	LOG_FATAL,	 // Fatal error level logging
-} LogLevel;
+	DBG_DEBUG,	 // Debug level logging
+	DBG_INFO,	 // Info level logging
+	DBG_WARNING, // Warning level logging
+	DBG_ERROR,	 // Error (non-fatal) level logging
+	DBG_FATAL,	 // Fatal error level logging
+} DebugLevel;
 
 extern TestSet test_sets; // Global test set registry
 
@@ -183,8 +183,8 @@ typedef struct sigtest_case_s
  */
 typedef struct sigtest_logger_s
 {
-	void (*log)(const char *, ...);				  /* Logging function pointer */
-	void (*debug)(LogLevel, const char *, ...); /* Debug logging function pointer */
+	void (*log)(const char *, ...);					 /* Logging function pointer */
+	void (*debug)(DebugLevel, const char *, ...); /* Debug logging function pointer */
 } sigtest_logger_s;
 
 /**

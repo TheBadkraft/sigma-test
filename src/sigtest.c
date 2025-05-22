@@ -36,15 +36,17 @@ const char *TEST_STATES[] = {
 	 "PASS",
 	 "FAIL",
 	 "SKIP",
-	 NULL};
+	 NULL,
+};
 // For dynamic log level annotation
-const char *LOG_LEVELS[] = {
+static const char *DBG_LEVELS[] = {
 	 "DEBUG",
 	 "INFO",
 	 "WARNING",
 	 "ERROR",
 	 "FATAL",
-	 NULL};
+	 NULL,
+};
 //	system clock structures
 #define SYS_CLOCK SYS_clock_gettime
 #define CLOCK_MONOTONIC 1
@@ -58,7 +60,7 @@ double get_elapsed_ms(ts_time *start, ts_time *end)
 }
 //	internal logger declarations
 static void log_message(const char *, ...);
-static void log_debug(LogLevel, const char *, ...);
+static void log_debug(DebugLevel, const char *, ...);
 // hooks registry
 static HookRegistry *hook_registry = NULL;
 
@@ -949,12 +951,12 @@ static void default_on_test_result(const TestSet set, const TestCase tc, object 
 
 	if (ctx->verbose && tc->test_result.message)
 	{
-		LogLevel level = (tc->test_result.state == PASS) ? LOG_INFO : LOG_DEBUG;
+		DebugLevel level = (tc->test_result.state == PASS) ? DBG_INFO : DBG_DEBUG;
 		set->logger->debug(level, "\tmessage= %s\n", tc->test_result.message ? tc->test_result.message : "NULL");
 	}
 	if (ctx->verbose)
 	{
-		set->logger->debug(LOG_DEBUG, "\tstart= %ld.%04ld", ctx->start.tv_sec, ctx->start.tv_nsec);
+		set->logger->debug(DBG_DEBUG, "\tstart= %ld.%04ld", ctx->start.tv_sec, ctx->start.tv_nsec);
 		set->logger->log("\tend=   %ld.%04ld\n", ctx->end.tv_sec, ctx->end.tv_nsec);
 	}
 }
@@ -1258,13 +1260,13 @@ static void log_message(const char *fmt, ...)
 
 	va_end(args);
 }
-static void log_debug(LogLevel level, const char *fmt, ...)
+static void log_debug(DebugLevel level, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
 
 	FILE *stream = current_set && current_set->log_stream ? current_set->log_stream : stdout;
-	fprintf(stream, "[%s] ", LOG_LEVELS[level]);
+	fprintf(stream, "[%s] ", DBG_LEVELS[level]);
 	vfprintf(stream, fmt, args);
 	fflush(stream);
 
