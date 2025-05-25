@@ -3,6 +3,8 @@
 
    David Boarman
    2025-05-11
+
+   SIGTEST_CLI_VERSION "0.02.01"
 */
 #ifndef SIGTEST_CLI_H
 #define SIGTEST_CLI_H

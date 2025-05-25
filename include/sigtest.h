@@ -3,6 +3,8 @@
 
 	David Boarman
 	2024-09-01
+
+	SIGTEST_VERSION "0.03.01"
 */
 #ifndef SIGTEST_H
 #define SIGTEST_H

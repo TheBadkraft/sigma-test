@@ -1,29 +1,29 @@
 {
   "test_set": "hooks_set",
-  "timestamp": "2025-05-20 21:21:19",
+  "timestamp": "2025-05-25 09:29:59",
   "tests": [
     {
       "test": "hooks_test_true",
       "status": "PASS",
-      "duration_us": "0.762",
+      "duration_us": "1.911",
       "message": ""
     },
     {
       "test": "hooks_test_fail",
       "status": "FAIL",
-      "duration_us": "2.066",
+      "duration_us": "2.994",
       "message": "1 should not equal 0"
     },
     {
       "test": "hooks_test_skip",
       "status": "SKIP",
-      "duration_us": "0.725",
+      "duration_us": "0.702",
       "message": "This test is skipped"
     },
     {
       "test": "hooks_test_throws",
       "status": "FAIL",
-      "duration_us": "1.358",
+      "duration_us": "0.903",
       "message": "This test is explicitly thrown"
     }
   ],

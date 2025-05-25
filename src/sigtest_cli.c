@@ -20,7 +20,7 @@
 #include <sys/stat.h>
 
 // CLI specific declarations
-#define SIGTEST_CLI_VERSION "0.02.00"
+#define SIGTEST_CLI_VERSION "0.02.01"
 // For dynamic log level annotation
 static const char *DBG_LEVELS[] = {
     "DEBUG",
@@ -40,6 +40,8 @@ static CliState cli = {
     .debug_level = DBG_DEBUG,
 };
 
+#define MAX_DEPS 10
+#define MAX_NAME_LEN 128
 #define BUILD_DIR "build/tmp"
 
 void parse_args(int, char **, FILE *);
@@ -48,7 +50,7 @@ int verify_directory(const char *, FILE *);
 void detect_dependencies(const char *, const char **, int *);
 void gen_filenames(const char *, char *, char *, size_t);
 int compile_suite(const char *[], int, char *[], FILE *);
-int link_executable(const char *[], int, const char *, FILE *);
+int link_executable(const char *[], int, const char *, const char *, FILE *);
 int run_and_cleanup(const char *, const char *);
 
 int main(int argc, char **argv)
@@ -121,7 +123,7 @@ int main(int argc, char **argv)
    fdebugf(stdout, cli.log_level, DBG_INFO, "Compiled: source=`%s`, object=`%s`, executable=`%s`\n", sources[0], objs[0], exe);
 
    // Link the object files into an executable
-   if (link_executable((const char **)objs, source_count, exe, stderr) != 0)
+   if (link_executable((const char **)objs, source_count, exe, "-Llib", stderr) != 0)
    {
       return 1;
    }
@@ -313,9 +315,114 @@ int verify_directory(const char *dir, FILE *err_stream)
 // Detect dependencies
 void detect_dependencies(const char *src, const char **deps, int *dep_count)
 {
-   // hardcoded for now; in the future, we will use a configuration file
+   fdebugf(stdout, cli.log_level, DBG_INFO, "Detecting dependencies for source file: %s\n", src);
+   FILE *file = fopen(src, "r");
+   if (!file)
+   {
+      fdebugf(stderr, LOG_VERBOSE, DBG_ERROR, "Cannot open source file: %s\n", src);
+   }
+   fdebugf(stdout, cli.log_level, DBG_INFO, "Building dependency list for source: %s\n", src);
+   // iterate lines
+   char line[256];
    *dep_count = 0;
-   deps[(*dep_count)++] = "src/sigtest.c";
+   while (fgets(line, sizeof(line), file) && *dep_count < MAX_DEPS)
+   {
+      // Check for *include directives with convention: "_hooks.h"
+      if (strncmp(line, "#include", 8) == 0 && strstr(line, "_hooks.h"))
+      {
+         // Extract the filename from the line
+         char *start = strchr(line, '"') + 1;
+         char *end = strrchr(start, '"');
+         if (end)
+         {
+            char dep[MAX_NAME_LEN], src_dep[MAX_NAME_LEN + 5];
+            size_t len = end - start;
+            if (len > (MAX_NAME_LEN - 5))
+            {
+               fdebugf(stderr, cli.log_level, DBG_ERROR, "Dependency name length: %s (%zu bytes, max 123)\nUse `--cfg sigtest.json` configuration to specify depoendencies.",
+                       start, len);
+               fclose(file);
+               exit(1); // gracefully exit with warning
+            }
+
+            strncpy(dep, start, end - start);
+            dep[end - start] = '\0'; // Null-terminate the dependency string
+            fdebugf(stdout, cli.log_level, DBG_INFO, "Found hooks dependency: %s\n", dep);
+            char *dot = strstr(dep, ".");
+            if (!dot)
+            {
+               fdebugf(stderr, cli.log_level, DBG_ERROR,
+                       "Invalid hook dependency (no extension): %s. Use -c sigtest.json to specify dependencies.\n",
+                       dep);
+               fclose(file);
+               exit(1);
+            }
+
+            // Replace the extension with .c
+            strcpy(dot, ".c");
+            // Check for dependency in "src/*" first
+            snprintf(src_dep, sizeof(src_dep), "src/%s", dep);
+            fdebugf(stdout, cli.log_level, DBG_INFO, "Searching for dependency in: %s\n", src_dep);
+            FILE *dep_file = fopen(src_dep, "r");
+            if (dep_file)
+            {
+               fclose(dep_file);
+               // Check for duplicate
+               int is_duplicate = 0;
+               for (int i = 0; i < *dep_count; i++)
+               {
+                  if (strcmp(deps[i], src_dep) == 0)
+                  {
+                     fdebugf(stdout, cli.log_level, DBG_DEBUG, "Skipping duplicate dependency: %s\n", src_dep);
+                     is_duplicate = 1;
+                     break;
+                  }
+               }
+               if (!is_duplicate)
+               {
+                  fdebugf(stdout, cli.log_level, DBG_INFO, "Dependency found: %s\n", src_dep);
+                  deps[(*dep_count)++] = strdup(src_dep);
+               }
+               continue;
+            }
+
+            // Check for dependency in "include/" ... although I'm not sure this is even likely to find .c in the includes
+            fdebugf(stdout, cli.log_level, DBG_INFO, "Searching for dependency in: %s\n", dep);
+            dep_file = fopen(dep, "r");
+            if (dep_file)
+            {
+               fclose(dep_file);
+               // Check for duplicate
+               int is_duplicate = 0;
+               for (int i = 0; i < *dep_count; i++)
+               {
+                  if (strcmp(deps[i], dep) == 0)
+                  {
+                     fdebugf(stdout, cli.log_level, DBG_DEBUG, "Skipping duplicate dependency: %s\n", dep);
+                     is_duplicate = 1;
+                     break;
+                  }
+               }
+               if (!is_duplicate)
+               {
+                  fdebugf(stdout, cli.log_level, DBG_INFO, "Dependency found: %s\n", dep);
+                  deps[(*dep_count)++] = strdup(dep);
+               }
+               continue;
+            }
+
+            // Dependency not found
+            fdebugf(stderr, cli.log_level, DBG_ERROR,
+                    "Cannot find dependency: %s or %s for %s. Use -c sigtest.json to specify dependencies.\n",
+                    src_dep, dep, line);
+            fclose(file);
+            exit(1);
+         }
+      }
+   }
+
+   fdebugf(stdout, cli.log_level, DBG_INFO, "Dependency detection completed for %s: %d dependencies found\n", src, *dep_count);
+   fclose(file);
 }
 // Generate filenames
 void gen_filenames(const char *src, char *obj, char *exe, size_t len)
@@ -339,7 +446,8 @@ int compile_suite(const char *sources[], int count, char *objs[], FILE *err_stre
    for (int i = 0; i < count; i++)
    {
       char cmd[512];
-      snprintf(cmd, sizeof(cmd), "%s -c %s -Iinclude -DSIGTEST_TEST -o %s", getenv("CC") ? getenv("CC") : "gcc", sources[i], objs[i]);
+      snprintf(cmd, sizeof(cmd), "%s -c %s -Iinclude -DSIGTEST_TEST -o %s",
+               getenv("CC") ? getenv("CC") : "gcc", sources[i], objs[i]);
       if (cli.log_level != LOG_NONE)
       {
          fdebugf(stdout, cli.log_level, DBG_INFO, "Compiling: command='%s'\n", cmd);
@@ -355,7 +463,7 @@ int compile_suite(const char *sources[], int count, char *objs[], FILE *err_stre
    return 0;
 }
 // Link the object files into an executable
-int link_executable(const char *objs[], int count, const char *exe, FILE *err_stream)
+int link_executable(const char *objs[], int count, const char *exe, const char *linker_flags, FILE *err_stream)
 {
    char cmd[512], obj_list[256] = "";
    for (int i = 0; i < count; i++)
@@ -363,7 +471,8 @@ int link_executable(const char *objs[], int count, const char *exe, FILE *err_st
       strncat(obj_list, objs[i], sizeof(obj_list) - strlen(obj_list) - 1);
       strncat(obj_list, " ", sizeof(obj_list) - strlen(obj_list) - 1);
    }
-   snprintf(cmd, sizeof(cmd), "%s %s -o %s", getenv("CC") ? getenv("CC") : "gcc", obj_list, exe);
+   snprintf(cmd, sizeof(cmd), "%s %s -o %s -lsigtest %s",
+            getenv("CC") ? getenv("CC") : "gcc", obj_list, exe, linker_flags ? linker_flags : "");
    if (cli.log_level != LOG_NONE)
    {
       fdebugf(stdout, cli.log_level, DBG_INFO, "Linking: %s\n", cmd);
