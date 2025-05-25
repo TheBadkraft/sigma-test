@@ -214,8 +214,7 @@ typedef struct sigtest_set_s
 /**
  * @brief Retrieve the SigmaTest version
  */
-const char *
-sigtest_version(void);
+const char *sigtest_version(void);
 /**
  * @brief Registers a new test into the test array
  * @param  name :the test name

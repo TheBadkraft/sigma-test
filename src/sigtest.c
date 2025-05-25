@@ -73,8 +73,7 @@ void get_timestamp(char *buffer, const char *format)
 	time_t now = time(NULL);
 	strftime(buffer, 32, format, localtime(&now));
 }
-// format write message to stream
-void fwritef(FILE *, const char *, ...);
+
 // Initialize hooks with the given name/label
 SigtestHooks init_hooks(const char *name)
 {
@@ -993,7 +992,9 @@ static const sigtest_hooks_s default_hooks = {
 	 .after_test = default_after_test,
 	 .on_error = default_on_error,
 	 .on_test_result = default_on_test_result,
-	 .context = &default_ctx};
+	 .context = &default_ctx,
+};
+
 //	 initialize on start up
 __attribute__((constructor)) static void init_default_hooks(void)
 {
