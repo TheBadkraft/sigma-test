@@ -1,3 +1,11 @@
+#### **Version 0.02.01** CLI -- _2025-05-25_  
+Clean up compile and linking.  
+- Removed `src/sigtest.c` from the compile function
+- Added `-lsigtest` to the linker
+- Provided a set of simple search rules to resolve `*_hooks.h` includes.
+
+-----  
+
 #### **Version 0.03.01** LIB -- _2025-05-21_  
 Only minimal changes `sigtest` for accessibility to `DebugLevel` (renamed from `LogLevel`) and it's enum values. Also expanded the version values for clarity and continuity with `sigtest` (CLI).
 
