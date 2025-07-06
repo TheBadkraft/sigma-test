@@ -1,0 +1,204 @@
+{
+  "vars": {
+    "SRC_DIR": "src",
+    "INCLUDE_DIR": "include",
+    "BUILD_DIR": "build",
+    "BIN_DIR": "bin",
+    "LIB_DIR": "bin/lib",
+    "TEST_DIR": "test",
+    "LIB_TEST_DIR": "test/lib",
+    "TST_BUILD_DIR": "build/test",
+    "TEMPLATE_DIR": "templates",
+    "RESOURCE_DIR": "resources"
+  },
+  "name": "Sigma.Test",
+  "log_file": "{BIN_DIR}/sigma_test.log",
+  "targets": [
+    {
+      "name": "libsigtest",
+      "type": "lib",
+      "sources": [
+        "{SRC_DIR}/*.c",
+        "!{SRC_DIR}/sigtest_cli.c",
+        "!{SRC_DIR}/hooks/*.c"
+      ],
+      "build_dir": "{BUILD_DIR}",
+      "compiler": "gcc",
+      "compiler_flags": [
+        "-Wall",
+        "-g",
+        "-fPIC",
+        "-I{INCLUDE_DIR}",
+        "-DSIGTEST_TEST"
+      ],
+      "linker_flags": ["-shared"],
+      "out_dir": "{LIB_DIR}",
+      "output": "libsigtest.so"
+    },
+    {
+      "name": "sigtest_cli",
+      "type": "exe",
+      "sources": ["{SRC_DIR}/sigtest_cli.c"],
+      "build_dir": "{BUILD_DIR}",
+      "compiler": "gcc",
+      "compiler_flags": [
+        "-Wall",
+        "-g",
+        "-fPIC",
+        "-I{INCLUDE_DIR}"
+      ],
+      "linker_flags": [
+        "-g",
+        "-L{LIB_DIR}",
+        "-lsigtest",
+        "-Wl,-rpath,{LIB_DIR}"
+      ],
+      "dependencies": ["libsigtest"],
+      "out_dir": "{BIN_DIR}"
+    },
+    {
+      "name": "objectify",
+      "type": "exe",
+      "sources": ["tools/objectify.c"],
+      "build_dir": "{BUILD_DIR}",
+      "compiler": "gcc",
+      "compiler_flags": [
+        "-Wall",
+        "-g",
+        "-fPIC",
+        "-I{INCLUDE_DIR}"
+      ],
+      "out_dir": "{BIN_DIR}"
+    },
+    {
+      "name": "test_asserts",
+      "type": "exe",
+      "sources": ["{TEST_DIR}/test_asserts.c", "{SRC_DIR}/*.c", "{SRC_DIR}/sigtest_cli.c"],
+      "build_dir": "{TST_BUILD_DIR}",
+      "compiler": "gcc",
+      "compiler_flags": [
+        "-Wall",
+        "-g",
+        "-fPIC",
+        "-I{INCLUDE_DIR}",
+        "-DSIGTEST_TEST"
+      ],
+      "linker_flags": ["-g"],
+      "out_dir": "{TST_BUILD_DIR}"
+    },
+    {
+      "name": "test_configs",
+      "type": "exe",
+      "sources": ["{TEST_DIR}/test_configs.c", "{SRC_DIR}/*.c", "!{SRC_DIR}/sigtest_cli.c"],
+      "build_dir": "{TST_BUILD_DIR}",
+      "compiler": "gcc",
+      "compiler_flags": [
+        "-Wall",
+        "-g",
+        "-fPIC",
+        "-I{INCLUDE_DIR}",
+        "-DSIGTEST_TEST"
+      ],
+      "linker_flags": ["-g"],
+      "dependencies": ["libsigtest"],
+      "out_dir": "{TST_BUILD_DIR}"
+    },
+    {
+      "name": "test_sigtest",
+      "type": "exe",
+      "sources": ["{TEST_DIR}/test_sigtest.c", "{SRC_DIR}/*.c", "!{SRC_DIR}/sigtest_cli.c"],
+      "build_dir": "{TST_BUILD_DIR}",
+      "compiler": "gcc",
+      "compiler_flags": [
+        "-Wall",
+        "-g",
+        "-fPIC",
+        "-I{INCLUDE_DIR}",
+        "-DSIGTEST_TEST"
+      ],
+      "linker_flags": ["-g"],
+      "dependencies": ["libsigtest"],
+      "out_dir": "{TST_BUILD_DIR}"
+    },
+    {
+      "name": "test_hooks",
+      "type": "exe",
+      "sources": [
+        "{TEST_DIR}/test_hooks.c",
+        "{SRC_DIR}/*.c",
+        "!{SRC_DIR}/sigtest_cli.c",
+        "{SRC_DIR}/hooks/json_hooks.c"
+      ],
+      "build_dir": "{TST_BUILD_DIR}",
+      "compiler": "gcc",
+      "compiler_flags": [
+        "-Wall",
+        "-g",
+        "-fPIC",
+        "-I{INCLUDE_DIR}",
+        "-DSIGTEST_TEST"
+      ],
+      "linker_flags": ["-g"],
+      "dependencies": ["libsigtest"],
+      "out_dir": "{TST_BUILD_DIR}"
+    },
+    {
+      "name": "test_lib",
+      "type": "exe",
+      "sources": [
+        "{LIB_TEST_DIR}/test_lib.c",
+        "{LIB_TEST_DIR}/math_utils.c"
+      ],
+      "build_dir": "{TST_BUILD_DIR}",
+      "compiler": "gcc",
+      "compiler_flags": [
+        "-Wall",
+        "-g",
+        "-fPIC",
+        "-I{INCLUDE_DIR}",
+        "-I{LIB_TEST_DIR}",
+        "-DSIGTEST_TEST"
+      ],
+      "linker_flags": [
+        "-g",
+        "-L{LIB_DIR}",
+        "-lsigtest"
+      ],
+      "dependencies": ["libsigtest"],
+      "out_dir": "{TST_BUILD_DIR}"
+    },
+    {
+      "name": "clean",
+      "type": "op",
+      "commands": {
+        "linux": [
+          "find {BUILD_DIR} -type f -delete",
+          "find {BIN_DIR} -type f -delete"
+        ]
+      }
+    },
+    {
+      "name": "clean-objectify",
+      "type": "op",
+      "commands": {
+        "linux": [
+          "rm -rf {SRC_DIR}/templates/*.ct",
+          "rm -rf {RESOURCE_DIR}/*.ro"
+        ]
+      }
+    },
+    {
+      "name": "install",
+      "type": "op",
+      "commands": {
+        "linux": [
+          "sudo cp {LIB_DIR}/libsigtest.so /usr/lib/",
+          "sudo cp {INCLUDE_DIR}/sigtest.h /usr/include/",
+          "sudo cp {BIN_DIR}/sigtest /usr/bin/",
+          "sudo ldconfig"
+        ]
+      },
+      "dependencies": ["libsigtest", "sigtest_cli"]
+    }
+  ]
+}
